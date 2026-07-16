@@ -7,6 +7,7 @@ export const state = {
   loop: true,
   trim: { in: 0, out: 0 },
   exporting: false,     // realtime-fallback export in progress
+  priming: false,       // ring buffer being rebuilt after a scrub
   chain: [],            // ordered effect instances
   selectedId: null,     // effect card focused for time-map / timeline keys
   settings: {

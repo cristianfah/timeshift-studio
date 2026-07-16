@@ -3,7 +3,7 @@ import { $, clamp } from './util/dom.js';
 import { toast, fatal } from './ui/toast.js';
 import { state, on, emit } from './state.js';
 import { Engine } from './engine/renderer.js';
-import { loadVideoFile, estimateFps } from './engine/video.js';
+import { loadVideoFile, estimateFps, SeekStepper } from './engine/video.js';
 import { initTransport, enableTransport, updateTransport } from './ui/transport.js';
 import { registry } from './effects/registry.js';
 import { initChain } from './ui/chain.js';
@@ -28,6 +28,10 @@ if (!checkWebGL2()) {
 
 // ---------- engine ----------
 const engine = new Engine($('#gl-canvas'));
+$('#gl-canvas').addEventListener('webglcontextlost', (e) => {
+  e.preventDefault();
+  toast('Contexto WebGL perdido (memoria GPU agotada). Reduce PREVIEW/BUFFER y recarga la página.', 'error');
+});
 const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
 
 
@@ -93,7 +97,7 @@ function pumpFrames(videoEl) {
   if (!hasRVFC) return; // fallback: pushed from the render loop while playing
   const tick = () => {
     if (state.video?.el !== videoEl) return; // stale element after reload
-    engine.pushFrame(videoEl);
+    if (!state.priming) engine.pushFrame(videoEl);
     videoEl.requestVideoFrameCallback(tick);
   };
   videoEl.requestVideoFrameCallback(tick);
@@ -138,6 +142,48 @@ function seekTo(t, { scrub = false } = {}) {
   // History is kept intentionally: temporal effects keep flowing while
   // scrubbing; buffer priming rebuilds true history on scrub end.
   if (!scrub) emit('seek-settled', { time: t });
+}
+
+// ---------- buffer priming: rebuild real frame history after a scrub ----------
+let primeToken = 0;
+let primeTimer = null;
+
+on('seek-settled', ({ time }) => {
+  primeToken++; // invalidate any in-flight prime
+  clearTimeout(primeTimer);
+  primeTimer = setTimeout(() => primeBuffer(time), 300);
+});
+
+async function primeBuffer(t) {
+  const v = state.video;
+  const depth = state.bufferInfo?.depth ?? 0;
+  const frames = v ? Math.min(depth - 1, Math.floor(t * v.fps)) : 0;
+  if (!v || state.playing || state.exporting || depth < 2 || frames < 2) {
+    // ensure a superseded prime never leaves the pump paused
+    state.priming = false;
+    $('#prime-badge').classList.add('hidden');
+    return;
+  }
+
+  const my = ++primeToken;
+  state.priming = true;
+  $('#prime-badge').classList.remove('hidden');
+  const stepper = new SeekStepper(v.url);
+  try {
+    await stepper.ready();
+    engine.resetHistory();
+    for (let i = frames; i >= 0; i--) {
+      if (my !== primeToken || state.playing || state.video !== v) return;
+      await stepper.seek(t - i / v.fps + 0.0001);
+      engine.pushFrame(stepper.video);
+    }
+  } catch { /* priming is best-effort */ } finally {
+    stepper.dispose();
+    if (my === primeToken) {
+      state.priming = false;
+      $('#prime-badge').classList.add('hidden');
+    }
+  }
 }
 
 on('video-replaced', () => { fpsRefined = false; });
