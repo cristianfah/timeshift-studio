@@ -5,9 +5,11 @@ import { state, on, emit } from './state.js';
 import { Engine } from './engine/renderer.js';
 import { loadVideoFile, estimateFps } from './engine/video.js';
 import { initTransport, enableTransport, updateTransport } from './ui/transport.js';
-import { registry, baseParams } from './effects/registry.js';
+import { registry } from './effects/registry.js';
 import { initChain } from './ui/chain.js';
-import { initTimemap } from './ui/timemap.js';
+import { initTimemap, setTimemapResolver } from './ui/timemap.js';
+import { initAnim } from './ui/anim.js';
+import { resolveParams } from './animation/resolver.js';
 
 // ---------- capability check ----------
 function checkWebGL2() {
@@ -26,9 +28,6 @@ if (!checkWebGL2()) {
 const engine = new Engine($('#gl-canvas'));
 const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
 
-// Static resolver — the animation milestone swaps this for the
-// LFO/keyframe-aware evaluator.
-let resolveParams = (fx, _t) => baseParams(fx);
 
 // ---------- video loading ----------
 async function loadFile(file) {
@@ -230,6 +229,8 @@ initLoaderUI();
 initSettingsUI();
 initChain();
 initTimemap();
+setTimemapResolver((fx, t) => resolveParams(fx, t ?? 0));
+initAnim();
 renderLoop();
 
 export { engine, seekTo, reconfigureEngine };
