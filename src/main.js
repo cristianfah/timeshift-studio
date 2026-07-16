@@ -5,6 +5,9 @@ import { state, on, emit } from './state.js';
 import { Engine } from './engine/renderer.js';
 import { loadVideoFile, estimateFps } from './engine/video.js';
 import { initTransport, enableTransport, updateTransport } from './ui/transport.js';
+import { registry, baseParams } from './effects/registry.js';
+import { initChain } from './ui/chain.js';
+import { initTimemap } from './ui/timemap.js';
 
 // ---------- capability check ----------
 function checkWebGL2() {
@@ -23,9 +26,9 @@ if (!checkWebGL2()) {
 const engine = new Engine($('#gl-canvas'));
 const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
 
-// Placeholders — replaced by the effects + animation milestones.
-const registry = {};
-const resolveParams = () => ({});
+// Static resolver — the animation milestone swaps this for the
+// LFO/keyframe-aware evaluator.
+let resolveParams = (fx, _t) => baseParams(fx);
 
 // ---------- video loading ----------
 async function loadFile(file) {
@@ -157,6 +160,7 @@ function renderLoop() {
   engine.render(state.chain, registry, {
     time: t,
     fps: v.fps,
+    duration: v.duration,
     params: (fx) => resolveParams(fx, t),
   });
 
@@ -224,6 +228,8 @@ initTransport({
 });
 initLoaderUI();
 initSettingsUI();
+initChain();
+initTimemap();
 renderLoop();
 
 export { engine, seekTo, reconfigureEngine };

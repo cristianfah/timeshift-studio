@@ -27,7 +27,7 @@ uniform float uFps;
 float tsHash(float n) { return fract(sin(n * 127.1 + 311.7) * 43758.5453123); }
 float tsHash2(vec2 p) { return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453123); }
 
-// Sample `delay` frames back from the head. Video frames are stored
+// Sample 'delay' frames back from the head. Video frames are stored
 // top-row-first, so Y is flipped here once for the whole pipeline.
 vec4 frameAt(vec2 uv, float delay) {
   float maxD = max(float(uCount) - 1.0, 0.0);
@@ -184,7 +184,7 @@ export class Engine {
       const entry = this.ensureEffect(fx.type, mod.frag);
       const params = ctx.params(fx);
       this._runPass(entry, pp.write.fbo, pp.read.tex, ctx, (u) => {
-        mod.setUniforms(gl, u, params, ctx, this);
+        mod.setUniforms(gl, u, params, ctx, this, fx);
       });
       pp.swap();
     }
