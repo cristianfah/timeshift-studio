@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TIMESHIFT_STUDIO</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><rect width='16' height='16' fill='%230b0d11'/><rect x='2' y='3' width='3' height='10' fill='%23ff4633'/><rect x='6' y='3' width='3' height='10' fill='%234fd8c7'/><rect x='10' y='3' width='3' height='10' fill='%23d7dce6'/></svg>">
+<link rel="stylesheet" href="styles/main.css">
+</head>
+<body>
+<div id="app" class="app">
+
+  <!-- ============ HEADER ============ -->
+  <header class="header">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      <h1>TIMESHIFT<span class="accent">_</span>STUDIO</h1>
+      <span class="brand-sub">// laboratorio temporal</span>
+    </div>
+    <div class="header-right">
+      <span id="clip-chip" class="chip chip-clip hidden" title=""></span>
+      <label class="hdr-ctl" title="Resolución interna de previsualización">
+        <span>PREVIEW</span>
+        <select id="preview-res">
+          <option value="640">640px</option>
+          <option value="854" selected>854px</option>
+          <option value="1280">1280px</option>
+        </select>
+      </label>
+      <label class="hdr-ctl" title="Segundos de historia disponibles para efectos">
+        <span>BUFFER</span>
+        <select id="buffer-secs">
+          <option value="2">2s</option>
+          <option value="3" selected>3s</option>
+          <option value="5">5s</option>
+          <option value="8">8s</option>
+        </select>
+      </label>
+      <span id="fps-meter" class="fps-meter" title="FPS de previsualización">-- fps</span>
+      <button id="btn-export" class="btn btn-primary" disabled>EXPORTAR</button>
+    </div>
+  </header>
+
+  <!-- ============ MAIN GRID ============ -->
+  <main class="main">
+
+    <!-- Left column: viewport + transport + timeline + timemap -->
+    <section class="stage">
+      <div id="viewport" class="viewport">
+        <canvas id="gl-canvas"></canvas>
+        <div id="dropzone" class="dropzone">
+          <div class="dropzone-inner">
+            <div class="dropzone-icon">▞▚</div>
+            <p>ARRASTRA UN VIDEO AQUÍ</p>
+            <p class="muted">o</p>
+            <button id="btn-open" class="btn">ABRIR ARCHIVO…</button>
+            <input type="file" id="file-input" accept="video/*" hidden>
+            <p class="muted small">mp4 · webm · mov — todo se procesa localmente, nada se sube</p>
+          </div>
+        </div>
+        <div id="prime-badge" class="prime-badge hidden">RELLENANDO BUFFER…</div>
+      </div>
+
+      <div class="transport" id="transport">
+        <button id="btn-gostart" class="btn btn-icon" title="Ir al inicio" disabled>⏮</button>
+        <button id="btn-play" class="btn btn-icon btn-play" title="Reproducir / pausar [espacio]" disabled>▶</button>
+        <button id="btn-loop" class="btn btn-icon active" title="Loop en región de recorte" disabled>⟲</button>
+        <span id="timecode" class="timecode">00:00:00 / 00:00:00</span>
+        <span class="transport-spacer"></span>
+        <label class="hdr-ctl"><span>MUTE</span><input type="checkbox" id="chk-mute" checked></label>
+      </div>
+
+      <div class="timeline-wrap">
+        <div id="timeline" class="timeline">
+          <div id="tl-trim-region" class="tl-trim-region"></div>
+          <div id="tl-progress" class="tl-progress"></div>
+          <div id="tl-playhead" class="tl-playhead"></div>
+          <div id="tl-keys" class="tl-keys"></div>
+          <div id="tl-trim-in" class="tl-trim-handle" title="Inicio de recorte"></div>
+          <div id="tl-trim-out" class="tl-trim-handle" title="Fin de recorte"></div>
+        </div>
+        <div class="timeline-hint muted small">
+          <span>⏱ clic: mover playhead · ⯁ marcadores: arrastrar = mover · clic derecho = borrar · alt+clic = curva</span>
+        </div>
+      </div>
+
+      <div class="datarow">
+        <div class="timemap-box">
+          <div class="box-title">MAPA_DE_TIEMPO <span id="timemap-label" class="muted"></span></div>
+          <canvas id="timemap" width="192" height="108"></canvas>
+          <div class="timemap-legend">
+            <span>ahora</span><span class="timemap-grad"></span><span id="timemap-max">-0f</span>
+          </div>
+        </div>
+        <div class="cli-box">
+          <div class="box-title">COMANDO_RENDER</div>
+          <pre id="cli-preview" class="cli-preview">// carga un clip para generar el comando</pre>
+          <div class="cli-actions">
+            <button id="btn-copy-cli" class="btn small" disabled>COPIAR COMANDO</button>
+            <span id="cli-note" class="muted small"></span>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Right column: effect chain -->
+    <aside class="rack">
+      <div class="rack-head">
+        <div class="box-title">CADENA_DE_EFECTOS</div>
+        <div class="looks">
+          <span class="muted small">LOOKS:</span>
+          <div id="looks-chips" class="chips"></div>
+        </div>
+        <div class="add-effect">
+          <select id="add-effect-select"></select>
+          <button id="btn-add-effect" class="btn small">+ AÑADIR</button>
+        </div>
+      </div>
+      <div id="chain-list" class="chain-list">
+        <p class="muted small empty-chain">— cadena vacía: añade un efecto o elige un look —</p>
+      </div>
+      <div class="rack-foot">
+        <button id="btn-preset-save" class="btn small">GUARDAR PRESET .JSON</button>
+        <button id="btn-preset-load" class="btn small">CARGAR PRESET</button>
+        <input type="file" id="preset-input" accept=".json,application/json" hidden>
+      </div>
+    </aside>
+  </main>
+
+  <!-- toasts -->
+  <div id="toasts" class="toasts"></div>
+
+  <!-- export modal -->
+  <div id="export-modal" class="modal hidden">
+    <div class="modal-card">
+      <div class="box-title">EXPORTAR_CLIP</div>
+      <div id="export-config">
+        <div class="form-row"><label>RESOLUCIÓN</label>
+          <select id="export-scale">
+            <option value="1" selected>100% (nativa)</option>
+            <option value="0.5">50%</option>
+            <option value="0.25">25%</option>
+          </select>
+        </div>
+        <div class="form-row"><label>AUDIO</label>
+          <label class="inline"><input type="checkbox" id="export-audio" checked> incluir pista original</label>
+        </div>
+        <p id="export-info" class="muted small"></p>
+        <p id="export-warn" class="warn small hidden"></p>
+      </div>
+      <div id="export-progress" class="hidden">
+        <div class="progress"><div id="export-bar" class="progress-fill"></div></div>
+        <p id="export-status" class="muted small">preparando…</p>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-export-cancel" class="btn small">CANCELAR</button>
+        <button id="btn-export-start" class="btn btn-primary small">RENDERIZAR</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+<script type="module" src="src/main.js"></script>
+</body>
+</html>
