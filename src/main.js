@@ -10,6 +10,8 @@ import { initChain } from './ui/chain.js';
 import { initTimemap, setTimemapResolver } from './ui/timemap.js';
 import { initAnim } from './ui/anim.js';
 import { resolveParams } from './animation/resolver.js';
+import { initPresets } from './ui/presets.js';
+import { initExport } from './ui/exportui.js';
 
 // ---------- capability check ----------
 function checkWebGL2() {
@@ -49,6 +51,7 @@ async function loadFile(file) {
     meta.el.muted = $('#chk-mute').checked;
 
     $('#dropzone').classList.add('hidden');
+    $('#btn-export').disabled = false;
     enableTransport(true);
     updateClipChip();
     emit('video-loaded');
@@ -151,7 +154,7 @@ function renderLoop() {
   if (!hasRVFC && state.playing) engine.pushFrame(v.el);
 
   const t = v.el.currentTime;
-  if (state.playing && t >= state.trim.out - 0.02) {
+  if (!state.exporting && state.playing && t >= state.trim.out - 0.02) {
     if (state.loop) seekTo(state.trim.in);
     else { v.el.pause(); state.playing = false; }
   }
@@ -231,6 +234,8 @@ initChain();
 initTimemap();
 setTimemapResolver((fx, t) => resolveParams(fx, t ?? 0));
 initAnim();
+initPresets();
+initExport();
 renderLoop();
 
 export { engine, seekTo, reconfigureEngine };

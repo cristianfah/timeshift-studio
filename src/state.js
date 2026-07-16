@@ -6,6 +6,7 @@ export const state = {
   playing: false,
   loop: true,
   trim: { in: 0, out: 0 },
+  exporting: false,     // realtime-fallback export in progress
   chain: [],            // ordered effect instances
   selectedId: null,     // effect card focused for time-map / timeline keys
   settings: {
