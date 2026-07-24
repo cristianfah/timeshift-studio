@@ -17,7 +17,8 @@ uniform vec2 uGrid;
 uniform float uDelayF, uRangeMin, uRangeMax, uGlyphCount;
 uniform float uDensity, uVariation, uLayers;
 uniform int uCharMode;   // 0 atlas glyphs, 1 procedural blocks
-uniform int uColorMode;  // 0 white ink, 1 source color, 2 over video
+uniform int uColorMode;  // 0 white ink, 1 source color
+uniform int uBgMode;     // 0 solid black (covers the video), 1 video shows through
 uniform int uInvert;
 uniform sampler2D uAtlas;
 
@@ -60,7 +61,7 @@ float layerGlyph(vec2 grid, float layerId, out vec3 ink, out float inBand) {
 }
 
 void main() {
-  vec3 bg = (uColorMode == 2) ? texture(uPrev, v_uv).rgb : vec3(0.024, 0.031, 0.043);
+  vec3 bg = (uBgMode == 1) ? texture(uPrev, v_uv).rgb : vec3(0.024, 0.031, 0.043);
   vec3 col = bg;
   float anyBand = 0.0;
   // Paint order coarse → base → fine so smaller glyphs land on top.
@@ -74,8 +75,10 @@ void main() {
     col = mix(col, ink, g);
     anyBand = max(anyBand, inBand);
   }
-  // Cells outside the luma band on every layer stay transparent to the chain.
-  outColor = vec4(anyBand > 0.0 ? col : texture(uPrev, v_uv).rgb, 1.0);
+  // FONDO=NEGRO fully covers the video, even outside the luma band.
+  // FONDO=VIDEO keeps out-of-band cells transparent to the chain so
+  // stacked instances with different ranges compose.
+  outColor = vec4((uBgMode == 0 || anyBand > 0.0) ? col : texture(uPrev, v_uv).rgb, 1.0);
 }`;
 
 /** Build (once per engine+charset) a 1-row glyph atlas canvas. */
@@ -119,7 +122,10 @@ export default {
     { key: 'charset',   label: 'CARACTERES', type: 'select', def: 'simbolos',
       options: [['simbolos', 'SÍMBOLOS'], ['ascii', 'ASCII'], ['codigo', 'CÓDIGO'], ['bloques', 'BLOQUES']] },
     { key: 'ink',       label: 'TINTA', type: 'select', def: 'blanco',
-      options: [['blanco', 'BLANCO'], ['fuente', 'COLOR FUENTE'], ['video', 'SOBRE VIDEO']] },
+      options: [['blanco', 'BLANCO'], ['fuente', 'COLOR FUENTE']] },
+    { key: 'bg',        label: 'FONDO', type: 'select', def: 'negro',
+      options: [['negro', 'NEGRO (tapa video)'], ['video', 'VIDEO VISIBLE']],
+      help: 'NEGRO: el efecto reemplaza el video por completo. VIDEO: el video se ve detrás/entre los caracteres.' },
     { key: 'delay',     label: 'DELAY (f)', min: 0, max: 150, step: 1, def: 0,
       help: 'El patrón de texto se toma de un frame del pasado en vez del actual.' },
     { key: 'rangeMin',  label: 'RANGO MÍN', min: 0, max: 1, step: 0.01, def: 0,
@@ -130,12 +136,13 @@ export default {
       options: [['no', 'NO'], ['yes', 'SÍ']] },
   ],
   presets: {
-    PIXELSYNTH: { charset: 'simbolos', cell: 14, ink: 'blanco', layers: 2, density: 0.85, variation: 0.25 },
-    CRASH:      { charset: 'codigo', cell: 10, ink: 'fuente', rangeMin: 0.05, variation: 0.6, layers: 1, density: 1 },
-    ASCII:      { charset: 'ascii', cell: 12, ink: 'blanco', variation: 0.15, layers: 1, density: 1 },
-    DENSO:      { charset: 'codigo', cell: 7, ink: 'blanco', layers: 3, density: 1, variation: 0.5 },
-    DISPERSO:   { charset: 'simbolos', cell: 18, ink: 'blanco', density: 0.3, variation: 0.4, layers: 1 },
-    MOSAICO:    { charset: 'bloques', cell: 16, ink: 'fuente', layers: 1, density: 1 },
+    PIXELSYNTH: { charset: 'simbolos', cell: 14, ink: 'blanco', bg: 'negro', layers: 2, density: 0.85, variation: 0.25 },
+    CRASH:      { charset: 'codigo', cell: 10, ink: 'fuente', bg: 'negro', rangeMin: 0.05, variation: 0.6, layers: 1, density: 1 },
+    ASCII:      { charset: 'ascii', cell: 12, ink: 'blanco', bg: 'negro', variation: 0.15, layers: 1, density: 1 },
+    DENSO:      { charset: 'codigo', cell: 7, ink: 'blanco', bg: 'negro', layers: 3, density: 1, variation: 0.5 },
+    DISPERSO:   { charset: 'simbolos', cell: 18, ink: 'blanco', bg: 'negro', density: 0.3, variation: 0.4, layers: 1 },
+    HIBRIDO:    { charset: 'simbolos', cell: 16, ink: 'blanco', bg: 'video', density: 0.5, variation: 0.3, layers: 1 },
+    MOSAICO:    { charset: 'bloques', cell: 16, ink: 'fuente', bg: 'negro', layers: 1, density: 1 },
   },
   frag,
   setUniforms(gl, u, p, ctx, engine) {
@@ -150,7 +157,9 @@ export default {
     gl.uniform1f(u('uVariation'), p.variation);
     gl.uniform1f(u('uLayers'), Math.round(p.layers));
     gl.uniform1i(u('uInvert'), p.invert === 'yes' ? 1 : 0);
-    gl.uniform1i(u('uColorMode'), p.ink === 'fuente' ? 1 : p.ink === 'video' ? 2 : 0);
+    gl.uniform1i(u('uColorMode'), p.ink === 'fuente' ? 1 : 0);
+    // p.ink === 'video' is the pre-FONDO name for a see-through background
+    gl.uniform1i(u('uBgMode'), (p.bg === 'video' || p.ink === 'video') ? 1 : 0);
 
     if (p.charset === 'bloques') {
       gl.uniform1i(u('uCharMode'), 1);

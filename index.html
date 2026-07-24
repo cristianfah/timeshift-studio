@@ -48,7 +48,14 @@
     <!-- Left column: viewport + transport + timeline + timemap -->
     <section class="stage">
       <div id="viewport" class="viewport">
-        <canvas id="gl-canvas"></canvas>
+        <div id="zoom-wrap" class="zoom-wrap">
+          <canvas id="gl-canvas"></canvas>
+        </div>
+        <div class="zoom-ctl">
+          <button id="zoom-out" class="btn btn-icon" title="Alejar [rueda del ratón]">−</button>
+          <button id="zoom-reset" class="btn" title="Restablecer zoom (o doble clic en el visor)">100%</button>
+          <button id="zoom-in" class="btn btn-icon" title="Acercar [rueda del ratón]">+</button>
+        </div>
         <div id="dropzone" class="dropzone">
           <div class="dropzone-inner">
             <div class="dropzone-icon">▞▚</div>
@@ -189,7 +196,8 @@
         <b>GUARDAR PRESET .JSON</b> exporta la cadena + animación para
         recargarla después.</p>
         <p class="muted">Atajos: <b>espacio</b> reproducir/pausar ·
-        <b>inicio</b> ir al principio.</p>
+        <b>inicio</b> ir al principio · <b>rueda</b> sobre el visor = zoom,
+        <b>arrastrar</b> = mover encuadre, <b>doble clic</b> = restablecer.</p>
       </div>
       <div class="modal-actions">
         <button id="btn-help-close" class="btn small">CERRAR</button>

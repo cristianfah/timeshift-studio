@@ -12,6 +12,7 @@ import { initAnim } from './ui/anim.js';
 import { resolveParams } from './animation/resolver.js';
 import { initPresets } from './ui/presets.js';
 import { initExport } from './ui/exportui.js';
+import { initZoom } from './ui/zoom.js';
 
 // ---------- capability check ----------
 function checkWebGL2() {
@@ -301,6 +302,7 @@ initTransport({
 });
 initLoaderUI();
 initHelpUI();
+initZoom();
 initSettingsUI();
 initChain();
 initTimemap();
