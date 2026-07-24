@@ -18,13 +18,17 @@ void main() {
 export default {
   type: 'blockShuffle',
   label: 'BLOCK_SHUFFLE',
+  desc: 'Cuadrícula de bloques congelados/retrasados al azar que se rebarajan cada N frames — el look datamosh.',
   params: [
     { key: 'gridX',      label: 'GRID X', min: 2, max: 64, step: 1, def: 12 },
     { key: 'gridY',      label: 'GRID Y', min: 2, max: 64, step: 1, def: 8 },
     { key: 'maxDelay',   label: 'DELAY MÁX (f)', min: 0, max: 150, step: 1, def: 40 },
-    { key: 'interval',   label: 'REBARAJAR (f)', min: 1, max: 120, step: 1, def: 12 },
-    { key: 'proportion', label: 'PROPORCIÓN', min: 0, max: 1, step: 0.01, def: 0.7 },
-    { key: 'seed',       label: 'SEED', min: 0, max: 100, step: 1, def: 7 },
+    { key: 'interval',   label: 'REBARAJAR (f)', min: 1, max: 120, step: 1, def: 12,
+      help: 'Cada cuántos frames se rebaraja qué bloques van al pasado.' },
+    { key: 'proportion', label: 'PROPORCIÓN', min: 0, max: 1, step: 0.01, def: 0.7,
+      help: 'Fracción de bloques afectados; el resto muestra el presente.' },
+    { key: 'seed',       label: 'SEED', min: 0, max: 100, step: 1, def: 7,
+      help: 'Semilla del patrón aleatorio.' },
   ],
   presets: {
     DATAMOSH:    { gridX: 24, gridY: 16, maxDelay: 60, interval: 6, proportion: 0.85 },

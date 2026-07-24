@@ -69,6 +69,9 @@ async function loadFile(file) {
     updateClipChip();
     emit('video-loaded');
     toast(`Clip cargado: ${meta.name} — todo se procesa en tu equipo.`);
+    if (state.chain.length === 0) {
+      setTimeout(() => toast('Consejo: dale play y pulsa un LOOK para empezar. El botón «?» abre la guía.'), 1200);
+    }
   } catch {
     toast('No se pudo decodificar el video. Prueba con otro códec/contenedor.', 'error');
   }
@@ -262,6 +265,19 @@ function initLoaderUI() {
   }
 }
 
+// ---------- quick guide ----------
+function initHelpUI() {
+  const modal = $('#help-modal');
+  $('#btn-help').addEventListener('click', () => modal.classList.remove('hidden'));
+  $('#btn-help-close').addEventListener('click', () => modal.classList.add('hidden'));
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) modal.classList.add('hidden');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.code === 'Escape') modal.classList.add('hidden');
+  });
+}
+
 // ---------- settings ----------
 function initSettingsUI() {
   $('#preview-res').addEventListener('change', (e) => {
@@ -284,6 +300,7 @@ initTransport({
   goStart: () => seekTo(state.trim.in),
 });
 initLoaderUI();
+initHelpUI();
 initSettingsUI();
 initChain();
 initTimemap();

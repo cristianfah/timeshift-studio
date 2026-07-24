@@ -23,11 +23,14 @@ void main() {
 export default {
   type: 'lumaTime',
   label: 'CELL_MAP',
+  desc: 'La luminancia del propio video decide cuánto retrocede cada celda en el tiempo: las zonas claras (u oscuras) miran al pasado.',
   params: [
     { key: 'gridX',    label: 'GRID X', min: 2, max: 96, step: 1, def: 24 },
     { key: 'gridY',    label: 'GRID Y', min: 2, max: 96, step: 1, def: 14 },
-    { key: 'maxDelay', label: 'DELAY MÁX (f)', min: 0, max: 150, step: 1, def: 45 },
-    { key: 'levels',   label: 'NIVELES (0=off)', min: 0, max: 16, step: 1, def: 0 },
+    { key: 'maxDelay', label: 'DELAY MÁX (f)', min: 0, max: 150, step: 1, def: 45,
+      help: 'Retraso, en frames, de las zonas más brillantes (o más oscuras si inviertes).' },
+    { key: 'levels',   label: 'NIVELES (0=off)', min: 0, max: 16, step: 1, def: 0,
+      help: 'Posteriza la luminancia en N escalones de tiempo (0 = continuo).' },
     { key: 'mode',     label: 'MODO', type: 'select', def: 'cells',
       options: [['cells', 'CELDAS'], ['pixel', 'POR PÍXEL']] },
     { key: 'invert',   label: 'INVERTIR', type: 'select', def: 'no',

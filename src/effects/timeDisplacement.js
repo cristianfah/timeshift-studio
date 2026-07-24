@@ -69,6 +69,7 @@ function mapValueJS(x, y, p, time) {
 export default {
   type: 'timeDisplacement',
   label: 'TIME_DISPLACEMENT',
+  desc: 'Un mapa de grises decide cuánto retrocede en el tiempo cada píxel: gradiente, radial, ruido o una imagen tuya.',
   params: [
     { key: 'maxDelay',    label: 'DELAY MÁX (f)', min: 0, max: 150, step: 1, def: 45 },
     { key: 'mapType',     label: 'MAPA', type: 'select', def: 'gradient',

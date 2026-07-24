@@ -95,6 +95,9 @@ function renderCard(fx, index) {
   // ---- body ----
   const body = el('div', { class: 'fx-body' });
 
+  // one-line description of what the effect does
+  if (mod.desc) body.append(el('p', { class: 'fx-desc' }, mod.desc));
+
   // preset chips
   const chips = el('div', { class: 'fx-presets' });
   for (const [name, preset] of Object.entries(mod.presets ?? {})) {
@@ -163,7 +166,10 @@ function renderSliderRow(fx, def) {
   slider.addEventListener('input', () => sync(parseFloat(slider.value)));
   num.addEventListener('change', () => sync(parseFloat(num.value) || def.def));
 
-  const label = el('label', { class: isAnimated(p) ? 'animated' : '' }, def.label);
+  const label = el('label', {
+    class: `${isAnimated(p) ? 'animated' : ''}${def.help ? ' has-help' : ''}`,
+    title: def.help ?? null,
+  }, def.label);
   const animCell = el('div', { class: 'panim' });
   const row = el('div', { class: 'param' }, label, slider, num, animCell);
   decorateParamRow?.(fx, def, { row, animCell, label, slider });
@@ -179,7 +185,9 @@ function renderSelectRow(fx, def) {
     emit('param-changed', { fx, key: def.key });
     emit('chain-changed');
   });
-  return el('div', { class: 'param-select' }, el('label', {}, def.label), select);
+  return el('div', { class: 'param-select' },
+    el('label', { class: def.help ? 'has-help' : '', title: def.help ?? null }, def.label),
+    select);
 }
 
 function isAnimated(p) {

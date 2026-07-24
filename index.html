@@ -37,6 +37,7 @@
         </select>
       </label>
       <span id="fps-meter" class="fps-meter" title="FPS de previsualización">-- fps</span>
+      <button id="btn-help" class="btn" title="Guía rápida">?</button>
       <button id="btn-export" class="btn btn-primary" disabled>EXPORTAR</button>
     </div>
   </header>
@@ -119,6 +120,10 @@
       <div id="chain-list" class="chain-list">
         <p class="muted small empty-chain">— cadena vacía: añade un efecto o elige un look —</p>
       </div>
+      <div class="rack-legend muted small">
+        ⧗ keyframe en playhead · ∿ LFO · ▲▼ orden · pasa el cursor por un
+        parámetro <span class="has-help">punteado</span> para ver su ayuda
+      </div>
       <div class="rack-foot">
         <button id="btn-preset-save" class="btn small">GUARDAR PRESET .JSON</button>
         <button id="btn-preset-load" class="btn small">CARGAR PRESET</button>
@@ -155,6 +160,39 @@
       <div class="modal-actions">
         <button id="btn-export-cancel" class="btn small">CANCELAR</button>
         <button id="btn-export-start" class="btn btn-primary small">RENDERIZAR</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- quick guide modal -->
+  <div id="help-modal" class="modal hidden">
+    <div class="modal-card modal-guide">
+      <div class="box-title">GUÍA_RÁPIDA</div>
+      <div class="guide">
+        <p><b>1 · CARGA</b> — arrastra un video al visor (mp4/webm/mov). Todo se
+        procesa en tu equipo; nada se sube a ningún servidor.</p>
+        <p><b>2 · EFECTOS</b> — elige un <b>LOOK</b> para empezar con una cadena
+        lista, o añade efectos uno a uno. Se aplican en orden de arriba a
+        abajo (▲▼ para reordenar, ✕ para quitar, casilla para activar).
+        Cada tarjeta tiene chips de preset y una línea que explica qué hace.</p>
+        <p><b>3 · ANIMACIÓN</b> — junto a cada slider: <b>⧗</b> fija un keyframe
+        en la posición actual del playhead (aparece como ⯁ en el timeline:
+        arrastra para mover, clic derecho para borrar, alt+clic cambia la
+        curva) y <b>∿</b> abre un LFO (oscilador) con forma, velocidad,
+        amplitud y fase.</p>
+        <p><b>4 · TIEMPO</b> — los efectos leen frames pasados de un buffer.
+        Si un delay supera el buffer, la tarjeta lo avisa: sube
+        <b>BUFFER</b> en la cabecera o baja el delay. El
+        <b>MAPA_DE_TIEMPO</b> muestra en teal qué zonas miran al pasado.</p>
+        <p><b>5 · EXPORT</b> — el botón rojo renderiza a resolución nativa
+        (MP4 con audio, o WebM si el navegador no soporta WebCodecs).
+        <b>GUARDAR PRESET .JSON</b> exporta la cadena + animación para
+        recargarla después.</p>
+        <p class="muted">Atajos: <b>espacio</b> reproducir/pausar ·
+        <b>inicio</b> ir al principio.</p>
+      </div>
+      <div class="modal-actions">
+        <button id="btn-help-close" class="btn small">CERRAR</button>
       </div>
     </div>
   </div>

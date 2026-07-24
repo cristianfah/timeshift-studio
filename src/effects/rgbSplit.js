@@ -14,6 +14,7 @@ void main() {
 export default {
   type: 'rgbSplit',
   label: 'RGB_TIME_SPLIT',
+  desc: 'Los canales rojo, verde y azul se toman de tres momentos distintos del clip.',
   params: [
     { key: 'delayR', label: 'DELAY R (f)', min: 0, max: 90, step: 1, def: 0 },
     { key: 'delayG', label: 'DELAY G (f)', min: 0, max: 90, step: 1, def: 8 },

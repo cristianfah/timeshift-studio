@@ -48,6 +48,7 @@ function sweepDelay(x, y, p, ctx) {
 export default {
   type: 'scanSweep',
   label: 'SCAN_SWEEP',
+  desc: 'Una banda barre el encuadre; dentro de ella el tiempo se retrasa o se congela (rolling shutter visible).',
   params: [
     { key: 'direction',   label: 'DIRECCIÓN', min: 0, max: 360, step: 1, def: 0 },
     { key: 'bandWidth',   label: 'ANCHO BANDA', min: 0.02, max: 1, step: 0.01, def: 0.25 },

@@ -22,10 +22,12 @@ void main() {
 export default {
   type: 'temporalEcho',
   label: 'TEMPORAL_ECHO',
+  desc: 'Estelas de movimiento: el frame actual se funde con N frames pasados de opacidad decreciente.',
   params: [
     { key: 'echoes',  label: 'ECOS', min: 1, max: 16, step: 1, def: 5 },
     { key: 'spacing', label: 'ESPACIADO (f)', min: 1, max: 30, step: 1, def: 4 },
-    { key: 'decay',   label: 'DECAY', min: 0.1, max: 0.95, step: 0.01, def: 0.6 },
+    { key: 'decay',   label: 'DECAY', min: 0.1, max: 0.95, step: 0.01, def: 0.6,
+      help: 'Cuánta opacidad pierde cada eco respecto al anterior.' },
     { key: 'blend',   label: 'FUSIÓN', type: 'select', def: 'normal',
       options: [['normal', 'NORMAL'], ['screen', 'SCREEN'], ['difference', 'DIFERENCIA']] },
   ],

@@ -426,6 +426,34 @@ select:focus, input:focus { outline: 1px solid var(--viz-dim); }
   margin: 2px 0 6px;
 }
 
+.fx-desc {
+  font-size: 9px;
+  color: var(--muted);
+  line-height: 1.45;
+  margin: 6px 0 2px;
+  border-left: 2px solid var(--border-hi);
+  padding-left: 6px;
+}
+
+/* params with hover help */
+.has-help {
+  text-decoration: underline dotted var(--border-hi);
+  text-underline-offset: 2px;
+  cursor: help;
+}
+
+.rack-legend {
+  padding: 6px 10px 0;
+  border-top: 1px solid var(--border);
+  line-height: 1.6;
+}
+
+/* quick guide */
+.modal-guide { width: min(560px, 94vw); max-height: 86vh; overflow-y: auto; }
+.guide p { font-size: 11px; line-height: 1.65; margin: 8px 0; color: var(--text); }
+.guide b { color: var(--viz); font-weight: 700; }
+.guide p b:first-child { color: var(--accent); }
+
 /* ---- param row ---- */
 .param {
   display: grid;
