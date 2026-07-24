@@ -93,21 +93,18 @@ export default {
     gl.uniform1i(u('uMapType'), MAP_TYPES[p.mapType] ?? 0);
     gl.uniform1i(u('uInvert'), p.invert === 'yes' ? 1 : 0);
 
-    // Custom map image lives on the instance; upload lazily to unit 2.
-    if (fx._mapImage && (fx._mapDirty || !fx._mapTex)) {
-      fx._mapTex ??= gl.createTexture();
+    // Custom map image lives on the instance; the GL texture is per-engine
+    // (preview vs export contexts must never share GL objects).
+    if (fx._mapImage) {
+      const slot = engine.instanceTex(`${fx.id}:map`);
+      const stamp = fx._mapStamp ?? 0;
+      if (slot.stamp !== stamp) {
+        engine.uploadTex(slot, fx._mapImage);
+        slot.stamp = stamp;
+      }
       gl.activeTexture(gl.TEXTURE2);
-      gl.bindTexture(gl.TEXTURE_2D, fx._mapTex);
-      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, fx._mapImage);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      fx._mapDirty = false;
+      gl.bindTexture(gl.TEXTURE_2D, slot.tex);
     }
-    gl.activeTexture(gl.TEXTURE2);
-    gl.bindTexture(gl.TEXTURE_2D, fx._mapTex ?? null);
     gl.uniform1i(u('uMap'), 2);
   },
   maxReach: (p) => p.maxDelay,

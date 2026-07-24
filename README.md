@@ -21,7 +21,7 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
   (resolución de preview + segundos de buffer).
   *WebGL2 engine: decoded frames feed a texture ring buffer; every effect is
   a fragment shader sampling that frame history. Bounded, configurable memory.*
-- **6 efectos apilables / 6 stackable effects** (cadena ordenada con
+- **10 efectos apilables / 10 stackable effects** (cadena ordenada con
   ping-pong framebuffers, toggles por efecto):
   - `SLICE_BANDS` — slit-scan clásico: N bandas paralelas, cada una desde un
     frame distinto del pasado. Rotación libre 0–180°, espaciado lineal o
@@ -36,6 +36,23 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
   - `RGB_TIME_SPLIT` — canales R, G y B muestreados en tres tiempos.
   - `SCAN_SWEEP` — una banda barre el encuadre; dentro, el tiempo se
     retrasa o se congela (rolling shutter como barrido visible).
+  - `CELL_MAP` — la luminancia del propio video se convierte en remapeo
+    temporal espacial sobre una cuadrícula (o por píxel), con
+    posterización opcional. *Luminance becomes spatial time remapping.*
+  - `PIXEL_SYNTH` — el brillo se convierte en composiciones de textura por
+    capas: símbolos, ASCII o bloques por celda, con banda de luminancia
+    (apila varias instancias para el look "pixelcrash") y tinta
+    blanco/color fuente/sobre video. *Brightness → layered glyph textures.*
+  - `VIENTO` — disolución direccional en partículas: smear por espacio y
+    tiempo a lo largo del viento, con turbulencia y grano parpadeante.
+    *Directional particle dissolution through space and time.*
+  - `MOTION_TRACK` — tracking de movimiento real (diferencia de frames →
+    regiones conectadas → tracks con ID estable, suavizado EMA,
+    persistencia e inercia), dibujado como overlay de laboratorio: cajas /
+    esquinas / círculos, líneas entre vecinos o vectores de velocidad y
+    lecturas numéricas; se compone en shader y se exporta a resolución
+    completa. *Real motion tracking rendered as a lab overlay, fully
+    exportable.*
 - **Animación de parámetros / Parameter animation** — todo parámetro
   numérico se anima por dos vías:
   - **LFO**: seno / triángulo / cuadrada / paso aleatorio, con rate,
@@ -56,7 +73,8 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
   cancelación. *Fallback visible:* MediaRecorder → WebM en tiempo real si
   WebCodecs no está disponible.
 - **Presets** — chips por efecto, *looks* globales (`FRAGMENTED`, `SMEAR`,
-  `SUBTLE`, `DATAMOSH`, `GHOST`, `CHROMATIC`), y export/import del stack
+  `SUBTLE`, `DATAMOSH`, `GHOST`, `CHROMATIC`, `TRACKER`, `PIXELCRASH`,
+  `VENDAVAL`), y export/import del stack
   completo + animación como **.json** portable. Se conserva el patrón
   "copiar comando de render": cadenas de slit-scan puro generan un comando
   `timeslice.py` compatible con el prototipo CLI original.
@@ -110,7 +128,7 @@ index.html            SPA sin build — ES modules
 src/
   engine/             gl.js · ringbuffer.js (TEXTURE_2D_ARRAY) · renderer.js
                       (cadena ping-pong + prelude GLSL) · video.js (fps, seek)
-  effects/            6 módulos shader + registry + looks (hot-swappable)
+  effects/            10 módulos shader + registry + looks (hot-swappable)
   animation/          lfo.js · keyframes.js · resolver.js (puro: (fx,t)→valores)
   export/             exporter.js (WebCodecs + mp4-muxer) · fallback.js (WebM)
   ui/                 transport · chain · anim · timemap · presets · export · toast

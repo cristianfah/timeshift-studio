@@ -26,4 +26,16 @@ export const LOOKS = {
     createEffect('rgbSplit', { delayR: 0, delayG: 18, delayB: 40 }),
     createEffect('sliceBands', { bands: 40, offset: 25, jitter: 0.08, angle: 90, feather: 0.06 }),
   ],
+  TRACKER: () => [
+    createEffect('rgbSplit', { delayR: 0, delayG: 1, delayB: 3 }),
+    createEffect('motionTrack', { style: 'rect', lines: 'vecinos', values: 'yes', maxBoxes: 10 }),
+  ],
+  PIXELCRASH: () => [
+    createEffect('lumaTime', { gridX: 32, gridY: 18, maxDelay: 30, levels: 5 }),
+    createEffect('pixelSynth', { charset: 'codigo', cell: 10, ink: 'fuente', rangeMin: 0.05 }),
+  ],
+  VENDAVAL: () => [
+    createEffect('particleWind', { power: 0.22, turb: 3, stepF: 5, grain: 0.5, mix: 0.9 }),
+    createEffect('temporalEcho', { echoes: 4, spacing: 3, decay: 0.6, blend: 'screen' }),
+  ],
 };

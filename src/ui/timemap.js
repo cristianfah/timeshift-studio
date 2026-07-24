@@ -55,9 +55,14 @@ function draw(time) {
   }
 
   const mod = registry[fx.type];
-  const vctx = { time, fps: state.video.fps, duration: state.video.duration };
+  const vctx = {
+    time,
+    fps: state.video.fps,
+    duration: state.video.duration,
+    luma: state.lumaSampler, // live frame luminance for luma-driven maps
+  };
   const values = resolveValues(fx, time);
-  const map = mod.delayMap(values, vctx);
+  const map = mod.delayMap(values, vctx, fx);
   const reach = Math.max(effectReach(fx, values, vctx), 1);
 
   const img = ctx2d.createImageData(GRID_W, GRID_H);

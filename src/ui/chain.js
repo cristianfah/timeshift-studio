@@ -127,7 +127,7 @@ function renderCard(fx, index) {
       if (!file) return;
       try {
         fx._mapImage = await createImageBitmap(file);
-        fx._mapDirty = true;
+        fx._mapStamp = (fx._mapStamp ?? 0) + 1;
         fx.params.mapType.base = 'custom';
         emit('chain-changed');
         toast('Mapa de tiempo personalizado cargado.');

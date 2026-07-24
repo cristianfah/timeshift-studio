@@ -5,10 +5,17 @@ import blockShuffle from './blockShuffle.js';
 import temporalEcho from './temporalEcho.js';
 import rgbSplit from './rgbSplit.js';
 import scanSweep from './scanSweep.js';
+import lumaTime from './lumaTime.js';
+import pixelSynth from './pixelSynth.js';
+import particleWind from './particleWind.js';
+import motionTrack from './motionTrack.js';
 
 import { uid } from '../state.js';
 
-const modules = [sliceBands, timeDisplacement, blockShuffle, temporalEcho, rgbSplit, scanSweep];
+const modules = [
+  sliceBands, timeDisplacement, blockShuffle, temporalEcho, rgbSplit, scanSweep,
+  lumaTime, pixelSynth, particleWind, motionTrack,
+];
 
 export const registry = Object.fromEntries(modules.map((m) => [m.type, m]));
 export const effectTypes = modules.map((m) => ({ type: m.type, label: m.label }));

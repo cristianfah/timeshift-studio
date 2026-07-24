@@ -15,6 +15,7 @@ export const state = {
     bufferSecs: 3,
   },
   bufferInfo: null,     // { width, height, depth, requestedDepth, memoryMB }
+  lumaSampler: null,    // (x, yTopDown) → 0..1 luminance of the preview frame
 };
 
 const bus = new EventTarget();

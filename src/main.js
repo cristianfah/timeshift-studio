@@ -34,6 +34,15 @@ $('#gl-canvas').addEventListener('webglcontextlost', (e) => {
 });
 const hasRVFC = 'requestVideoFrameCallback' in HTMLVideoElement.prototype;
 
+// Live luminance sampler for luma-driven time-map previews (CELL_MAP).
+state.lumaSampler = (x, yTop) => {
+  const g = engine.lumaGrid(64);
+  if (!g) return 0.5;
+  const cx = Math.min(g.cols - 1, Math.max(0, Math.floor(x * g.cols)));
+  const cy = Math.min(g.rows - 1, Math.max(0, Math.floor(yTop * g.rows)));
+  return g.luma[cy * g.cols + cx];
+};
+
 
 // ---------- video loading ----------
 async function loadFile(file) {

@@ -81,6 +81,12 @@ export class Engine {
     // before upload (texSubImage3D uploads at source size otherwise).
     this.scaler = document.createElement('canvas');
     this.scalerCtx = this.scaler.getContext('2d', { willReadFrequently: false });
+    // CPU analysis support (luma grids for CELL_MAP / MOTION_TRACK).
+    this._ana = document.createElement('canvas');
+    this._anaCtx = this._ana.getContext('2d', { willReadFrequently: true });
+    this._lumaCache = null;
+    this._pushStamp = 0;      // increments on every new frame upload
+    this._instanceTex = new Map(); // id → { tex, stamp } for CPU-generated textures
     this.srcPass = this._build('__src', SRC_FRAG);
     this.blitPass = this._build('__blit', BLIT_FRAG);
   }
@@ -145,10 +151,65 @@ export class Engine {
     if (!this.ring) return;
     this.scalerCtx.drawImage(source, 0, 0, this.scaler.width, this.scaler.height);
     this.ring.push(this.scaler);
+    this._pushStamp++;
   }
 
   resetHistory() {
     this.ring?.reset();
+  }
+
+  /**
+   * Low-res luminance grid of the newest frame (0..1, top-row-first).
+   * Cached per pushed frame — CELL_MAP viz and MOTION_TRACK share it.
+   * @returns {{cols, rows, luma: Float32Array, stamp}|null}
+   */
+  lumaGrid(cols = 96) {
+    if (!this.ring || this.ring.count === 0) return null;
+    const rows = Math.max(2, Math.round(cols * this.height / this.width));
+    const key = `${cols}x${rows}`;
+    if (this._lumaCache?.key === key && this._lumaCache.stamp === this._pushStamp) {
+      return this._lumaCache;
+    }
+    this._ana.width = cols;
+    this._ana.height = rows;
+    this._anaCtx.drawImage(this.scaler, 0, 0, cols, rows);
+    const d = this._anaCtx.getImageData(0, 0, cols, rows).data;
+    const luma = new Float32Array(cols * rows);
+    for (let i = 0; i < luma.length; i++) {
+      luma[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) / 255;
+    }
+    this._lumaCache = { key, stamp: this._pushStamp, cols, rows, luma };
+    return this._lumaCache;
+  }
+
+  /**
+   * Texture slot owned by THIS engine for CPU-generated content (tracker
+   * overlays, glyph atlases, custom maps). Keyed by caller-chosen id, so
+   * preview and export engines never share GL objects.
+   */
+  instanceTex(id) {
+    let slot = this._instanceTex.get(id);
+    if (!slot) {
+      slot = { tex: this.gl.createTexture(), stamp: -1, init: false };
+      this._instanceTex.set(id, slot);
+    }
+    return slot;
+  }
+
+  /** Upload a canvas/bitmap into an instanceTex slot (unit 2 scratch). */
+  uploadTex(slot, source) {
+    const gl = this.gl;
+    gl.activeTexture(gl.TEXTURE2);
+    gl.bindTexture(gl.TEXTURE_2D, slot.tex);
+    gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, source);
+    if (!slot.init) {
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      slot.init = true;
+    }
   }
 
   /**
@@ -165,6 +226,12 @@ export class Engine {
       gl.clearColor(0, 0, 0, 1);
       gl.clear(gl.COLOR_BUFFER_BIT);
       return;
+    }
+
+    // CPU analysis pass: effects that track/measure the frame run first,
+    // so their setUniforms can bind freshly generated textures.
+    for (const fx of chain) {
+      if (fx.enabled) registry[fx.type]?.analyze?.(this, fx, ctx);
     }
 
     const pp = this.pingpong;
@@ -226,5 +293,7 @@ export class Engine {
     this.pingpong?.dispose();
     for (const { prog } of this.programs.values()) this.gl.deleteProgram(prog);
     this.programs.clear();
+    for (const { tex } of this._instanceTex.values()) this.gl.deleteTexture(tex);
+    this._instanceTex.clear();
   }
 }
