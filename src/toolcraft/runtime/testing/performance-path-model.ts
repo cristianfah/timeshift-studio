@@ -1,0 +1,15 @@
+import type {
+  ToolcraftPipelineInteraction,
+  ToolcraftRenderPassRunLocation,
+} from "./performance-types";
+import type { ToolcraftPerformanceProfileName } from "./performance-workload-types";
+
+export type ToolcraftPerformancePath = {
+  id: string;
+  interaction: ToolcraftPipelineInteraction;
+  invalidates: readonly string[];
+  profile: ToolcraftPerformanceProfileName;
+  runsOn: readonly ToolcraftRenderPassRunLocation[];
+  targets: readonly string[];
+  workloadDimensions: readonly string[];
+};

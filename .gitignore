@@ -1,5 +1,38 @@
-.DS_Store
-node_modules/
+# Dependencies
+node_modules
+
+# Build output
+dist
+dist-ssr
+.vite
+.turbo
+.output
+.next
+*.tsbuildinfo
+
+# Test output
+coverage
+test-results
+playwright-report
+.playwright-mcp
+
+# Local environment
+.env
+.env.*
+!.env.example
+.toolcraft
+
+# Logs
+logs
 *.log
-.vscode/
-.idea/
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+
+# OS and editor files
+.DS_Store
+Thumbs.db
+.idea
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json

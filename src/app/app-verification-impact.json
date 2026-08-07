@@ -1,0 +1,15 @@
+{
+  "version": 3,
+  "owners": [
+    {
+      "acceptanceIds": ["persistence.reload"],
+      "kind": "functional",
+      "path": "src/app/app-composition.tsx"
+    },
+    {
+      "acceptanceIds": ["persistence.reload"],
+      "kind": "functional",
+      "path": "src/app/app-schema.ts"
+    }
+  ]
+}
