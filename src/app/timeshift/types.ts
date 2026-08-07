@@ -39,6 +39,11 @@ export type EffectParamValues = Record<string, number | string>;
 export type RenderContext = {
   duration: number;
   fps: number;
+  /**
+   * Live luminance sampler of the preview frame, in top-down coordinates.
+   * Only the time-map readout supplies it; shaders read the frame directly.
+   */
+  luma?: (x: number, yTop: number) => number;
   time: number;
 };
 
