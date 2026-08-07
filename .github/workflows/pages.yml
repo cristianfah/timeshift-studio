@@ -3,10 +3,7 @@ name: deploy-pages
 
 on:
   push:
-    branches:
-      - main
-      # Keeps the migration preview reachable before it lands on main.
-      - claude/timeshift-toolcraft-migration-u33e85
+    branches: [main]
   workflow_dispatch:
 
 permissions:
