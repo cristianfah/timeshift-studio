@@ -55,12 +55,26 @@ export type TrackPoint = {
   y: number;
 };
 
-/** Live tracker readout produced by the motion-track effect. */
-export type TrackVizPoint = {
-  confidence: number;
-  id: string;
-  x: number;
-  y: number;
+/**
+ * One drawable tracker readout. Both trackers (automatic motion regions and
+ * user-placed points) reduce to this shape.
+ */
+export type TrackMark = {
+  cx: number;
+  cy: number;
+  h: number;
+  id: number;
+  lost: boolean;
+  /** True for user-placed points, false for auto-detected regions. */
+  manual: boolean;
+  /** Seed id, for manual marks only. */
+  sid?: string;
+  tag: string;
+  trail: number[];
+  value: string;
+  vx: number;
+  vy: number;
+  w: number;
 };
 
 /**
@@ -73,9 +87,10 @@ export type ChainItem = {
   id: string;
   mapImage?: ImageBitmap | null;
   mapStamp?: number;
+  /** Live tracker readouts, written back by the motion-track analyze pass. */
+  marks?: TrackMark[];
   points?: TrackPoint[];
   type: string;
-  vizPoints?: TrackVizPoint[];
 };
 
 export type UniformLocator = (name: string) => WebGLUniformLocation | null;
@@ -92,6 +107,8 @@ export type LumaGrid = {
 };
 
 export type InstanceTextureSlot = {
+  /** Glyph count, for atlas slots. */
+  count?: number;
   init: boolean;
   stamp: number;
   tex: WebGLTexture | null;
@@ -106,11 +123,16 @@ export type EffectHost = {
   width: number;
 };
 
+/** Render context plus the per-instance parameter resolver. */
+export type AnalyzeContext = RenderContext & {
+  params: (fx: ChainItem) => EffectParamValues;
+};
+
 export type EffectModule<P extends EffectParamValues = EffectParamValues> = {
   /** CPU pass that runs before any shader, for trackers and analyzers. */
-  analyze?(host: EffectHost, fx: ChainItem, ctx: RenderContext): void;
+  analyze?(host: EffectHost, fx: ChainItem, ctx: AnalyzeContext): void;
   /** CPU mirror of the shader delay field, for the time-map readout. */
-  delayMap?(values: P, ctx: RenderContext): DelayMap;
+  delayMap?(values: P, ctx: RenderContext, fx?: ChainItem): DelayMap;
   desc: string;
   frag: string;
   hasCustomMap?: boolean;
