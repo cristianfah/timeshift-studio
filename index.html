@@ -66,14 +66,21 @@
             <p class="muted small">mp4 · webm · mov — todo se procesa localmente, nada se sube</p>
           </div>
         </div>
-        <div id="prime-badge" class="prime-badge hidden">RELLENANDO BUFFER…</div>
+        <div id="track-overlay" class="track-overlay hidden"></div>
+        <div id="pick-hint" class="pick-hint hidden">
+          CLIC = AÑADIR PUNTO · ARRASTRAR = RE-ANCLAR · CLIC DERECHO = BORRAR · ESC = TERMINAR
+        </div>
+        <div id="prime-badge" class="prime-badge hidden">RECONSTRUYENDO…</div>
       </div>
 
       <div class="transport" id="transport">
         <button id="btn-gostart" class="btn btn-icon" title="Ir al inicio" disabled>⏮</button>
+        <button id="btn-step-back" class="btn btn-icon" title="Frame anterior [←]" disabled>◀|</button>
         <button id="btn-play" class="btn btn-icon btn-play" title="Reproducir / pausar [espacio]" disabled>▶</button>
+        <button id="btn-step-fwd" class="btn btn-icon" title="Frame siguiente [→]" disabled>|▶</button>
         <button id="btn-loop" class="btn btn-icon active" title="Loop en región de recorte" disabled>⟲</button>
         <span id="timecode" class="timecode">00:00:00 / 00:00:00</span>
+        <span id="frame-counter" class="frame-counter">f0</span>
         <span class="transport-spacer"></span>
         <label class="hdr-ctl"><span>MUTE</span><input type="checkbox" id="chk-mute" checked></label>
       </div>
@@ -87,8 +94,13 @@
           <div id="tl-trim-in" class="tl-trim-handle" title="Inicio de recorte"></div>
           <div id="tl-trim-out" class="tl-trim-handle" title="Fin de recorte"></div>
         </div>
+        <div id="tl-thumb" class="tl-thumb hidden">
+          <canvas id="tl-thumb-canvas" width="160" height="90"></canvas>
+          <span id="tl-thumb-time">00:00:00</span>
+        </div>
         <div class="timeline-hint muted small">
-          <span>⏱ clic: mover playhead · ⯁ marcadores: arrastrar = mover · clic derecho = borrar · alt+clic = curva</span>
+          <span>⏱ clic = ir a ese frame exacto (se reconstruye el buffer) · ←/→ = frame a frame (shift = 10) ·
+          ⯁ marcadores: arrastrar = mover · clic derecho = borrar · alt+clic = curva</span>
         </div>
       </div>
 
@@ -120,8 +132,9 @@
           <div id="looks-chips" class="chips"></div>
         </div>
         <div class="add-effect">
-          <select id="add-effect-select"></select>
-          <button id="btn-add-effect" class="btn small">+ AÑADIR</button>
+          <button id="btn-add-effect" class="btn small btn-wide" title="Explorador con previsualización en vivo">
+            ▦ EXPLORAR EFECTOS…
+          </button>
         </div>
       </div>
       <div id="chain-list" class="chain-list">
@@ -171,6 +184,39 @@
     </div>
   </div>
 
+  <!-- effect browser: live previews of every effect and look -->
+  <div id="browser-modal" class="modal hidden">
+    <div class="modal-card modal-browser">
+      <div class="browser-head">
+        <div class="box-title">EXPLORADOR_DE_EFECTOS</div>
+        <input id="browser-filter" type="text" placeholder="filtrar…" autocomplete="off">
+        <span class="transport-spacer"></span>
+        <button id="btn-browser-close" class="btn small">CERRAR [esc]</button>
+      </div>
+
+      <div class="browser-hero">
+        <canvas id="browser-hero-canvas" width="384" height="216"></canvas>
+        <div class="hero-meta">
+          <div id="hero-title" class="hero-title">—</div>
+          <p id="hero-desc" class="muted small"></p>
+          <div id="hero-presets" class="chips"></div>
+          <button id="btn-hero-add" class="btn btn-primary small">+ AÑADIR A LA CADENA</button>
+        </div>
+      </div>
+
+      <p id="browser-empty" class="muted small hidden">
+        Carga un clip para ver las previsualizaciones en movimiento.
+      </p>
+
+      <div id="browser-grid" class="browser-grid"></div>
+
+      <p class="muted small browser-foot">
+        Pasa el cursor por una tarjeta para verla grande · clic para añadirla ·
+        pasa por un PRESET para previsualizarlo
+      </p>
+    </div>
+  </div>
+
   <!-- quick guide modal -->
   <div id="help-modal" class="modal hidden">
     <div class="modal-card modal-guide">
@@ -178,20 +224,31 @@
       <div class="guide">
         <p><b>1 · CARGA</b> — arrastra un video al visor (mp4/webm/mov). Todo se
         procesa en tu equipo; nada se sube a ningún servidor.</p>
-        <p><b>2 · EFECTOS</b> — elige un <b>LOOK</b> para empezar con una cadena
-        lista, o añade efectos uno a uno. Se aplican en orden de arriba a
-        abajo (▲▼ para reordenar, ✕ para quitar, casilla para activar).
-        Cada tarjeta tiene chips de preset y una línea que explica qué hace.</p>
+        <p><b>2 · EFECTOS</b> — <b>EXPLORAR EFECTOS…</b> abre una rejilla donde
+        cada efecto y cada look se previsualizan <b>en vivo sobre tu clip</b>:
+        pasa el cursor por una tarjeta para verla grande, por un PRESET para
+        probarlo, y haz clic para añadirlo. Se aplican en orden de arriba a
+        abajo (▲▼ para reordenar, ✕ para quitar, casilla para activar).</p>
         <p><b>3 · ANIMACIÓN</b> — junto a cada slider: <b>⧗</b> fija un keyframe
         en la posición actual del playhead (aparece como ⯁ en el timeline:
         arrastra para mover, clic derecho para borrar, alt+clic cambia la
         curva) y <b>∿</b> abre un LFO (oscilador) con forma, velocidad,
         amplitud y fase.</p>
-        <p><b>4 · TIEMPO</b> — los efectos leen frames pasados de un buffer.
-        Si un delay supera el buffer, la tarjeta lo avisa: sube
+        <p><b>4 · TIEMPO</b> — clic en cualquier punto del timeline salta a
+        <b>ese frame exacto</b>: el buffer se reconstruye con los frames reales
+        anteriores, así que lo que ves es lo que se exporta. <b>←/→</b> avanza
+        frame a frame (shift = 10) y al pasar el cursor por el timeline aparece
+        una miniatura. Si un delay supera el buffer, la tarjeta lo avisa: sube
         <b>BUFFER</b> en la cabecera o baja el delay. El
         <b>MAPA_DE_TIEMPO</b> muestra en teal qué zonas miran al pasado.</p>
-        <p><b>5 · EXPORT</b> — el botón rojo renderiza a resolución nativa
+        <p><b>5 · TRACKING</b> — <b>MOTION_TRACK</b> tiene dos modos.
+        <b>AUTO</b> detecta lo que se mueve contra un modelo de fondo.
+        <b>PUNTOS</b> sigue lo que tú elijas: pulsa <b>ELEGIR PUNTOS EN EL
+        VISOR</b> y haz clic sobre el sujeto — el punto se ancla al detalle
+        con más contraste que haya cerca y lo persigue por correlación,
+        mostrando su confianza. Arrastra un marcador para re-anclarlo, clic
+        derecho para borrarlo, <b>Esc</b> para terminar.</p>
+        <p><b>6 · EXPORT</b> — el botón rojo renderiza a resolución nativa
         (MP4 con audio, o WebM si el navegador no soporta WebCodecs).
         <b>GUARDAR PRESET .JSON</b> exporta la cadena + animación para
         recargarla después.</p>

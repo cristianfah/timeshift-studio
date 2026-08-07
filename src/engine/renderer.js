@@ -84,8 +84,9 @@ export class Engine {
     // CPU analysis support (luma grids for CELL_MAP / MOTION_TRACK).
     this._ana = document.createElement('canvas');
     this._anaCtx = this._ana.getContext('2d', { willReadFrequently: true });
-    this._lumaCache = null;
+    this._lumaCache = new Map(); // "colsxrows" → grid (several sizes coexist)
     this._pushStamp = 0;      // increments on every new frame upload
+    this._pushListeners = new Set();
     this._instanceTex = new Map(); // id → { tex, stamp } for CPU-generated textures
     this.srcPass = this._build('__src', SRC_FRAG);
     this.blitPass = this._build('__blit', BLIT_FRAG);
@@ -152,6 +153,17 @@ export class Engine {
     this.scalerCtx.drawImage(source, 0, 0, this.scaler.width, this.scaler.height);
     this.ring.push(this.scaler);
     this._pushStamp++;
+    for (const fn of this._pushListeners) fn(this.scaler);
+  }
+
+  /**
+   * Observe every frame this engine ingests (already downscaled). Used by
+   * the effect browser to keep its own small ring buffer in sync without
+   * decoding the video twice.
+   */
+  addPushListener(fn) {
+    this._pushListeners.add(fn);
+    return () => this._pushListeners.delete(fn);
   }
 
   resetHistory() {
@@ -167,9 +179,9 @@ export class Engine {
     if (!this.ring || this.ring.count === 0) return null;
     const rows = Math.max(2, Math.round(cols * this.height / this.width));
     const key = `${cols}x${rows}`;
-    if (this._lumaCache?.key === key && this._lumaCache.stamp === this._pushStamp) {
-      return this._lumaCache;
-    }
+    const hit = this._lumaCache.get(key);
+    if (hit && hit.stamp === this._pushStamp) return hit;
+
     this._ana.width = cols;
     this._ana.height = rows;
     this._anaCtx.drawImage(this.scaler, 0, 0, cols, rows);
@@ -178,8 +190,12 @@ export class Engine {
     for (let i = 0; i < luma.length; i++) {
       luma[i] = (d[i * 4] * 0.299 + d[i * 4 + 1] * 0.587 + d[i * 4 + 2] * 0.114) / 255;
     }
-    this._lumaCache = { key, stamp: this._pushStamp, cols, rows, luma };
-    return this._lumaCache;
+    const grid = { key, stamp: this._pushStamp, cols, rows, luma };
+    // Effects ask for different resolutions (motion grid vs tracking patch
+    // grid); keep a couple around so they don't evict each other every frame.
+    if (this._lumaCache.size > 4) this._lumaCache.clear();
+    this._lumaCache.set(key, grid);
+    return grid;
   }
 
   /**

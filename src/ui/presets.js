@@ -33,6 +33,7 @@ export function serializeSetup() {
     chain: state.chain.map((fx) => ({
       type: fx.type,
       enabled: fx.enabled,
+      points: (fx._points ?? []).map((p) => ({ ...p })),
       params: Object.fromEntries(Object.entries(fx.params).map(([k, p]) => [k, {
         base: p.base,
         lfo: p.lfo ?? null,
@@ -51,6 +52,11 @@ export function applySetup(data) {
     if (!registry[item.type]) continue; // skip effects from future versions
     const fx = createEffect(item.type);
     fx.enabled = item.enabled !== false;
+    if (Array.isArray(item.points)) {
+      fx._points = item.points
+        .filter((p) => isFinite(p.x) && isFinite(p.y))
+        .map((p, i) => ({ id: p.id ?? `p${i}`, x: p.x, y: p.y, anchor: 0 }));
+    }
     for (const [k, saved] of Object.entries(item.params ?? {})) {
       const p = fx.params[k];
       if (!p || typeof saved !== 'object') continue;

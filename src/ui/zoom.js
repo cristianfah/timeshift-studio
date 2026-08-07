@@ -3,6 +3,7 @@
 // when zoomed in, double click or the % button resets.
 
 import { $, clamp } from '../util/dom.js';
+import { isPicking } from './trackpoints.js';
 
 const MIN_Z = 0.25;
 const MAX_Z = 8;
@@ -47,11 +48,11 @@ export function initZoom() {
     setZoom(z * (e.deltaY < 0 ? 1.12 : 1 / 1.12));
   }, { passive: false });
 
-  viewport.addEventListener('dblclick', () => setZoom(1));
+  viewport.addEventListener('dblclick', () => { if (!isPicking()) setZoom(1); });
 
   // drag to pan while zoomed in
   viewport.addEventListener('pointerdown', (e) => {
-    if (z <= 1 || e.target.closest('.zoom-ctl, .dropzone')) return;
+    if (z <= 1 || isPicking() || e.target.closest('.zoom-ctl, .dropzone')) return;
     e.preventDefault();
     viewport.setPointerCapture(e.pointerId);
     viewport.classList.add('panning');

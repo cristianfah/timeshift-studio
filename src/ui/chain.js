@@ -4,9 +4,11 @@
 
 import { $, el } from '../util/dom.js';
 import { state, emit, on, maxDelayFrames } from '../state.js';
-import { registry, effectTypes, createEffect, baseParams, effectReach } from '../effects/registry.js';
+import { registry, baseParams, effectReach } from '../effects/registry.js';
 import { LOOKS } from '../effects/looks.js';
 import { toast } from './toast.js';
+import { trackPointsPanel } from './trackpoints.js';
+import { openBrowser } from './browser.js';
 
 let decorateParamRow = null; // (fx, def, rowEl) => void — set by animation UI
 export function setParamRowDecorator(fn) {
@@ -15,16 +17,7 @@ export function setParamRowDecorator(fn) {
 }
 
 export function initChain() {
-  const select = $('#add-effect-select');
-  for (const { type, label } of effectTypes) {
-    select.append(el('option', { value: type }, label));
-  }
-  $('#btn-add-effect').addEventListener('click', () => {
-    const fx = createEffect(select.value);
-    state.chain.push(fx);
-    state.selectedId = fx.id;
-    emit('chain-changed');
-  });
+  $('#btn-add-effect').addEventListener('click', () => openBrowser());
 
   const chipsHost = $('#looks-chips');
   for (const name of Object.keys(LOOKS)) {
@@ -116,6 +109,9 @@ function renderCard(fx, index) {
   // buffer-reach warning
   const warn = bufferWarning(fx);
   if (warn) body.append(el('div', { class: 'fx-warn' }, warn));
+
+  // effects that follow user-chosen points get their picker right here
+  if (mod.hasTrackPoints) body.append(trackPointsPanel(fx));
 
   // params
   for (const def of mod.params) {
