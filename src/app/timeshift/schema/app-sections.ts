@@ -31,12 +31,6 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
           target: targets.source,
           type: "fileDrop",
         },
-        muted: {
-          defaultValue: true,
-          label: "Silenciar",
-          target: targets.muted,
-          type: "switch",
-        },
       },
       id: "clip-source",
       title: "Clip",
@@ -91,12 +85,22 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
     },
     {
       controls: {
+        browser: {
+          defaultValue: "",
+          label: false,
+          target: "chain.browser",
+          type: "effectBrowser",
+        },
         manage: {
           actions: [
-            { icon: "wand-sparkles" as const, label: "Explorar efectos", value: "browse" },
-            { icon: "eraser" as const, label: "Vaciar cadena", value: "clear", variant: "outline" as const },
+            {
+              icon: "eraser" as const,
+              label: "Vaciar cadena",
+              value: "clear",
+              variant: "outline" as const,
+            },
           ],
-          label: "Cadena",
+          label: "Cadena completa",
           target: "chain.manage",
           type: "actions",
         },
@@ -106,6 +110,13 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
     },
     {
       controls: {
+        muted: {
+          defaultValue: true,
+          description: "El audio original se conserva en el export aunque lo silencies aquí.",
+          label: "Silenciar",
+          target: targets.muted,
+          type: "switch",
+        },
         trimIn: {
           defaultValue: 0,
           description: "Inicio de la región que se reproduce en bucle y se exporta.",
@@ -127,8 +138,8 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
           type: "slider",
         },
       },
-      id: "clip-trim",
-      title: "Recorte",
+      id: "clip-playback",
+      title: "Reproducción",
     },
     {
       controls: {
@@ -242,8 +253,18 @@ export function buildExportSections(): ToolcraftControlSectionSchema[] {
       controls: {
         deliver: {
           actions: [
-            { icon: "upload-simple" as const, label: "Exportar vídeo", value: "export-video" },
-            { icon: "upload-simple" as const, label: "Exportar PNG", value: "export-png" },
+            {
+              icon: "upload-simple" as const,
+              label: "Exportar vídeo",
+              role: "export-video" as const,
+              value: "export-video",
+            },
+            {
+              icon: "upload-simple" as const,
+              label: "Exportar PNG",
+              role: "export-image" as const,
+              value: "export-png",
+            },
           ],
           target: "panel.actions",
           type: "panelActions",
