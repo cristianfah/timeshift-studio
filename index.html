@@ -141,7 +141,8 @@
         <p class="muted small empty-chain">— cadena vacía: añade un efecto o elige un look —</p>
       </div>
       <div class="rack-legend muted small">
-        ⧗ keyframe en playhead · ∿ LFO · ▲▼ orden · pasa el cursor por un
+        ⧗ keyframe en playhead · ∿ LFO · ▲▼ orden · <b>⌘/ctrl+Z</b> deshacer
+        (<b>⇧</b> rehacer) · pasa el cursor por un
         parámetro <span class="has-help">punteado</span> para ver su ayuda
       </div>
       <div class="rack-foot">
@@ -208,11 +209,14 @@
         Carga un clip para ver las previsualizaciones en movimiento.
       </p>
 
-      <div id="browser-grid" class="browser-grid"></div>
+      <div class="browser-scroll">
+        <div id="browser-grid" class="browser-grid"></div>
+      </div>
 
       <p class="muted small browser-foot">
-        Pasa el cursor por una tarjeta para verla grande · clic para añadirla ·
-        pasa por un PRESET para previsualizarlo
+        El clip se reproduce mientras el explorador está abierto, así que las
+        tarjetas se ven en movimiento · pasa el cursor por una para verla
+        grande · clic para añadirla · pasa por un PRESET para previsualizarlo
       </p>
     </div>
   </div>
@@ -252,7 +256,8 @@
         (MP4 con audio, o WebM si el navegador no soporta WebCodecs).
         <b>GUARDAR PRESET .JSON</b> exporta la cadena + animación para
         recargarla después.</p>
-        <p class="muted">Atajos: <b>espacio</b> reproducir/pausar ·
+        <p class="muted">Atajos: <b>⌘/ctrl+Z</b> deshacer (con <b>⇧</b>, rehacer) ·
+        <b>espacio</b> reproducir/pausar ·
         <b>inicio</b> ir al principio · <b>rueda</b> sobre el visor = zoom,
         <b>arrastrar</b> = mover encuadre, <b>doble clic</b> = restablecer.</p>
       </div>

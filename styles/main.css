@@ -736,14 +736,18 @@ input[type="range"]::-moz-range-thumb {
 
 .browser-hero {
   display: grid;
-  grid-template-columns: minmax(240px, 384px) 1fr;
+  grid-template-columns: auto 1fr;
   gap: 14px;
   align-items: start;
 }
+/* Capped in both axes: a vertical clip must not blow the modal up and
+   squeeze the grid below it. width:auto keeps the clip's aspect. */
 #browser-hero-canvas {
-  width: 100%;
-  height: auto;
   display: block;
+  width: auto;
+  height: auto;
+  max-width: min(384px, 42vw);
+  max-height: 34vh;
   background: #000;
   border: 1px solid var(--border-hi);
   border-radius: var(--radius);
@@ -753,14 +757,21 @@ input[type="range"]::-moz-range-thumb {
 .hero-meta p { line-height: 1.6; }
 .hero-meta .chips { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
 
+/* The scroll lives on the wrapper, never on the grid: a grid that is itself
+   a sized flex item distributes its height across the rows and squashes the
+   tiles until they overlap. With an auto-height grid inside, rows size to
+   their content and the wrapper scrolls. */
+.browser-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
 .browser-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  align-content: start;
   gap: 8px;
-  flex: 1;
-  overflow-y: auto;
-  padding-right: 4px;
-  min-height: 0;
 }
 .browser-section {
   grid-column: 1 / -1;
@@ -771,6 +782,9 @@ input[type="range"]::-moz-range-thumb {
 }
 
 .browser-tile {
+  display: flex;
+  flex-direction: column;
+  align-self: start;
   border: 1px solid var(--border);
   border-radius: var(--radius);
   background: var(--panel);
@@ -783,18 +797,27 @@ input[type="range"]::-moz-range-thumb {
   outline: none;
   transform: translateY(-1px);
 }
+.browser-tile:hover .tile-label,
+.browser-tile.active .tile-label { color: var(--viz); }
 .browser-tile.is-look { border-left: 2px solid var(--accent-dim); }
+/* Fixed media box + contain: every tile is the same size whatever the clip's
+   orientation, and the name row can never be clipped away. */
 .tile-canvas {
   display: block;
+  flex: none;
   width: 100%;
-  height: auto;
+  height: var(--tile-h, 104px);
+  object-fit: contain;
   background: #000;
 }
 .tile-label {
-  font-size: 9px;
+  flex: none;
+  font-size: 10px;
   letter-spacing: 1px;
-  padding: 4px 5px;
+  padding: 5px 6px;
   color: var(--text);
+  background: var(--panel-2);
+  border-top: 1px solid var(--border);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;

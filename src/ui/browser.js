@@ -24,10 +24,13 @@ let open = false;
 let cursor = 0;
 let rafId = 0;
 let detach = null;
+let seekBack = null;
+let resume = null;   // playback state to put back when the browser closes
 
 // ---------------------------------------------------------------- lifecycle
 
-export function initBrowser(mainEngine) {
+export function initBrowser({ engine: mainEngine, seek }) {
+  seekBack = seek;
   $('#btn-browser-close').addEventListener('click', closeBrowser);
   $('#browser-modal').addEventListener('click', (e) => {
     if (e.target === $('#browser-modal')) closeBrowser();
@@ -73,6 +76,10 @@ function sizeCanvases() {
     item.canvas.width = TILE_W;
     item.canvas.height = Math.round(TILE_W * ratio);
   }
+  // Tiles keep the clip's shape but never grow tall enough to push the name
+  // out of view — a vertical clip letterboxes instead of stretching the grid.
+  $('#browser-grid').style.setProperty('--tile-h',
+    `${Math.round(Math.min(190, Math.max(72, TILE_W * ratio)))}px`);
 }
 
 // -------------------------------------------------------------------- items
@@ -264,6 +271,7 @@ export function openBrowser() {
   $('#browser-filter').value = '';
   applyFilter();
   $('#browser-filter').focus();
+  startPlayback();
   cancelAnimationFrame(rafId);
   rafId = requestAnimationFrame(tick);
 }
@@ -272,4 +280,33 @@ export function closeBrowser() {
   open = false;
   cancelAnimationFrame(rafId);
   $('#browser-modal').classList.add('hidden');
+  stopPlayback();
+}
+
+/**
+ * Previews are only meaningful in motion: on a frozen frame most temporal
+ * effects render the same still. So the clip rolls while the browser is
+ * open, muted, and the exact playback state is restored on close.
+ */
+function startPlayback() {
+  const v = state.video;
+  if (!v || resume) return;
+  resume = { playing: state.playing, time: v.el.currentTime, muted: v.el.muted };
+  v.el.muted = true;
+  if (!state.playing) {
+    v.el.play().then(() => { state.playing = true; }).catch(() => { /* blocked */ });
+  }
+}
+
+function stopPlayback() {
+  const v = state.video;
+  if (!v || !resume) return;
+  const { playing, time, muted } = resume;
+  resume = null;
+  v.el.muted = muted;
+  if (!playing) {
+    v.el.pause();
+    state.playing = false;
+    seekBack?.(time);   // back to the frame the user was looking at
+  }
 }

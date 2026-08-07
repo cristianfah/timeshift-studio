@@ -15,6 +15,7 @@ import { initExport } from './ui/exportui.js';
 import { initZoom } from './ui/zoom.js';
 import { initBrowser } from './ui/browser.js';
 import { initTrackPoints } from './ui/trackpoints.js';
+import { initHistory } from './ui/history.js';
 
 // ---------- capability check ----------
 function checkWebGL2() {
@@ -426,13 +427,14 @@ initHelpUI();
 initZoom();
 initSettingsUI();
 initTrackPoints();
-initBrowser(engine);
+initBrowser({ engine, seek: seekTo });
 initChain();
 initTimemap();
 setTimemapResolver((fx, t) => resolveParams(fx, t ?? 0));
 initAnim();
 initPresets();
 initExport();
+initHistory();
 renderLoop();
 
 export { engine, seekTo, reconfigureEngine };
