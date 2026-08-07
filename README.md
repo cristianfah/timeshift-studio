@@ -90,7 +90,12 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
   el motor principal, sin decodificar dos veces) va rotando entre las
   tarjetas, y la que tienes bajo el cursor se muestra grande junto a su
   descripción y sus presets — pasar por un preset lo previsualiza, hacer clic
-  lo añade. Con filtro de texto.
+  lo añade. Con filtro de texto. El clip **rueda mientras el explorador está
+  abierto** (silenciado, con la posición y el estado de reproducción
+  restaurados al cerrar): en un frame congelado casi todos los efectos
+  temporales se ven iguales. Las tarjetas mantienen la forma del clip con
+  letterbox, así que un vídeo vertical no deforma la rejilla ni tapa los
+  nombres.
 - **Timeline exacto al frame / Frame-accurate timeline** — un clic en
   cualquier punto del timeline salta al frame que contiene ese instante y
   reconstruye el buffer con los frames reales anteriores (sólo hasta donde
@@ -98,6 +103,12 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
   exactamente lo que se exporta. Avance frame a frame con `←/→` (shift = 10)
   o los botones ◀| |▶, contador de frame en el transporte y miniatura del
   frame bajo el cursor al pasar por el timeline.
+- **Deshacer / rehacer** — `⌘/ctrl+Z` y `⌘/ctrl+⇧+Z` sobre toda la cadena:
+  efectos añadidos o borrados, orden, activaciones, valores, LFOs, keyframes,
+  puntos de trackeo y recorte. Las instantáneas se toman con *debounce*, así
+  que arrastrar un slider queda como un solo paso, y conservan por referencia
+  lo que JSON no puede guardar (una imagen de mapa subida). Dentro de un campo
+  de texto el atajo sigue siendo el deshacer del navegador.
 - **Presets** — chips por efecto, *looks* globales (`FRAGMENTED`, `SMEAR`,
   `SUBTLE`, `DATAMOSH`, `GHOST`, `CHROMATIC`, `TRACKER`, `PIXELCRASH`,
   `VENDAVAL`), y export/import del stack
@@ -122,6 +133,7 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
    Reordena con ▲▼, activa/desactiva con el checkbox, pliega con ▾.
 4. Anima: pulsa **⧗** junto a un slider para fijar keyframes en el playhead,
    o **∿** para abrir el LFO. Los marcadores viven en el timeline.
+   `⌘/ctrl+Z` deshace cualquier cambio de la cadena (con `⇧`, rehace).
 5. Recorta con los tiradores teal del timeline; el loop respeta el recorte.
    Clic en el timeline = ir a ese frame exacto; `←/→` avanza frame a frame.
    Para trackear, añade `MOTION_TRACK`, pulsa **ELEGIR PUNTOS EN EL VISOR** y
@@ -139,6 +151,7 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
 4. Animate: hit **⧗** next to any slider to drop a keyframe at the playhead,
    or **∿** for the LFO editor. Keyframe markers live on the main timeline
    (drag to move, right-click to delete, alt+click cycles easing).
+   `⌘/ctrl+Z` undoes any chain change (`⇧` to redo).
 5. Trim with the teal timeline handles; looping respects the trim region.
    Clicking the timeline jumps to that exact frame; `←/→` steps frame by
    frame. To track something, add `MOTION_TRACK`, hit **ELEGIR PUNTOS EN EL
@@ -170,7 +183,7 @@ src/
   ui/                 transport (scrub exacto al frame, miniaturas) · browser
                       (rejilla con motor de preview propio) · trackpoints
                       (elegir puntos en el visor) · chain · anim · timemap
-                      · presets · export · zoom · toast
+                      · presets · export · zoom · history (undo/redo) · toast
 ```
 
 ## Créditos e inspiración / Credits & inspiration

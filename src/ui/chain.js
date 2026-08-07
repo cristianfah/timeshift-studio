@@ -62,6 +62,10 @@ function renderCard(fx, index) {
   // ---- header ----
   const toggle = el('input', { type: 'checkbox', class: 'fx-toggle', title: 'Activar/desactivar' });
   toggle.checked = fx.enabled;
+  // Keep the click off the header: selecting the card re-renders it, and a
+  // checkbox detached mid-dispatch never runs its activation behaviour — the
+  // box would appear to toggle and then snap back.
+  toggle.addEventListener('click', (e) => e.stopPropagation());
   toggle.addEventListener('change', () => {
     fx.enabled = toggle.checked;
     emit('chain-changed');
