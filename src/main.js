@@ -5,7 +5,7 @@ import { state, on, emit } from './state.js';
 import { Engine } from './engine/renderer.js';
 import { loadVideoFile, estimateFps, SeekStepper } from './engine/video.js';
 import { initTransport, enableTransport, updateTransport } from './ui/transport.js';
-import { registry } from './effects/registry.js';
+import { registry, effectReach } from './effects/registry.js';
 import { initChain } from './ui/chain.js';
 import { initTimemap, setTimemapResolver } from './ui/timemap.js';
 import { initAnim } from './ui/anim.js';
@@ -13,6 +13,8 @@ import { resolveParams } from './animation/resolver.js';
 import { initPresets } from './ui/presets.js';
 import { initExport } from './ui/exportui.js';
 import { initZoom } from './ui/zoom.js';
+import { initBrowser } from './ui/browser.js';
+import { initTrackPoints } from './ui/trackpoints.js';
 
 // ---------- capability check ----------
 function checkWebGL2() {
@@ -60,8 +62,12 @@ async function loadFile(file) {
     state.video = meta;
     state.playing = false;
     state.trim = { in: 0, out: meta.duration };
+    disposePrimeStepper();
     reconfigureEngine();
     pumpFrames(meta.el);
+    // A seek also delivers a frame — without rVFC this is the only signal,
+    // and with it, it makes the paused viewport update immediately.
+    meta.el.addEventListener('seeked', () => ingest(meta.el));
     meta.el.muted = $('#chk-mute').checked;
 
     $('#dropzone').classList.add('hidden');
@@ -98,6 +104,8 @@ function reconfigureEngine() {
     depth: requestedDepth,
   });
   state.bufferInfo = info;
+  headFrame = -1;   // fresh ring: no real history yet
+  headRun = 0;
   if (info.depth < info.requestedDepth) {
     const secs = (info.depth / v.fps).toFixed(1);
     toast(`Buffer limitado por memoria GPU: ${info.depth} frames (~${secs}s) disponibles.`, 'warn');
@@ -106,11 +114,52 @@ function reconfigureEngine() {
 }
 
 // ---------- frame pump: decoded frames → ring buffer ----------
+// The ring keeps its own bookkeeping: which clip time sits at the head and
+// how many *consecutive real* frames precede it. That is what lets a seek
+// reuse history it already has instead of re-decoding it (stepping one frame
+// forward costs one frame, not a whole rebuild).
+let headFrame = -1;  // index of the newest frame in the ring (-1 = unknown)
+let headRun = 0;     // consecutive real frames ending at headFrame
+
+/** Frame index containing clip time `t`; robust to seek-time rounding. */
+function frameIndex(t, fps) {
+  return Math.floor(t * fps + 0.001);
+}
+
+function resetRingHistory() {
+  engine.resetHistory();
+  headFrame = -1;
+  headRun = 0;
+}
+
+/** Record that the frame at clip time `t` just became the ring head. */
+function noteHead(t, fps) {
+  const f = frameIndex(t, fps);
+  headRun = f === headFrame + 1 && headFrame >= 0
+    ? Math.min(headRun + 1, state.bufferInfo?.depth ?? 1)
+    : 1;
+  headFrame = f;
+}
+
+/**
+ * Push a decoded frame into the ring, unless the buffer is being rebuilt or
+ * the very same frame is already at the head. The dedupe matters while
+ * paused: a repeated push would shift every temporal effect by one frame
+ * and make the paused viewport disagree with the export.
+ */
+function ingest(source, mediaTime) {
+  if (state.priming || !state.video) return;
+  const t = mediaTime ?? source.currentTime;
+  if (!state.playing && frameIndex(t, state.video.fps) === headFrame) return;
+  engine.pushFrame(source);
+  noteHead(t, state.video.fps);
+}
+
 function pumpFrames(videoEl) {
   if (!hasRVFC) return; // fallback: pushed from the render loop while playing
-  const tick = () => {
+  const tick = (_now, meta) => {
     if (state.video?.el !== videoEl) return; // stale element after reload
-    if (!state.priming) engine.pushFrame(videoEl);
+    ingest(videoEl, meta?.mediaTime);
     videoEl.requestVideoFrameCallback(tick);
   };
   videoEl.requestVideoFrameCallback(tick);
@@ -148,55 +197,126 @@ function refineFps() {
   });
 }
 
+/** Centre of the frame that contains `t` — seeking here always lands on it. */
+function frameSnap(t) {
+  const v = state.video;
+  if (!v) return t;
+  const last = Math.max(0, Math.floor(v.duration * v.fps) - 1);
+  const f = clamp(Math.floor(t * v.fps), 0, last);
+  return (f + 0.5) / v.fps;
+}
+
 function seekTo(t, { scrub = false } = {}) {
   const v = state.video;
   if (!v) return;
-  v.el.currentTime = clamp(t, 0, v.duration - 0.001);
+  const target = frameSnap(clamp(t, 0, v.duration - 0.001));
+  v.el.currentTime = target;
   // History is kept intentionally: temporal effects keep flowing while
   // scrubbing; buffer priming rebuilds true history on scrub end.
-  if (!scrub) emit('seek-settled', { time: t });
+  if (!scrub) emit('seek-settled', { time: target });
+}
+
+function stepFrames(n) {
+  const v = state.video;
+  if (!v) return;
+  if (state.playing) { v.el.pause(); state.playing = false; }
+  seekTo(v.el.currentTime + n / v.fps);
 }
 
 // ---------- buffer priming: rebuild real frame history after a scrub ----------
+// This is what makes "click anywhere on the timeline" show exactly the frame
+// under the playhead *with* its effects: the ring is refilled with the real
+// frames that precede the target, so temporal effects read true history
+// instead of whatever the scrub happened to sweep through.
 let primeToken = 0;
 let primeTimer = null;
+let primeStepper = null;
+let primeStepperUrl = null;
+
+function disposePrimeStepper() {
+  primeStepper?.dispose();
+  primeStepper = null;
+  primeStepperUrl = null;
+}
+
+async function getPrimeStepper(v) {
+  if (primeStepper && primeStepperUrl === v.url) return primeStepper;
+  disposePrimeStepper();
+  primeStepper = new SeekStepper(v.url);
+  primeStepperUrl = v.url;
+  await primeStepper.ready();
+  return primeStepper;
+}
+
+/** Frames of history the current chain actually reads at time t. */
+function chainReachAt(t) {
+  const v = state.video;
+  if (!v) return 0;
+  const ctx = { time: t, fps: v.fps, duration: v.duration };
+  let max = 0;
+  for (const fx of state.chain) {
+    if (!fx.enabled) continue;
+    max = Math.max(max, effectReach(fx, resolveParams(fx, t), ctx));
+  }
+  return Math.ceil(max);
+}
 
 on('seek-settled', ({ time }) => {
-  primeToken++; // invalidate any in-flight prime
+  primeToken++;             // invalidate any in-flight prime
+  state.priming = false;    // and never leave the frame pump paused
   clearTimeout(primeTimer);
-  primeTimer = setTimeout(() => primeBuffer(time), 300);
+  primeTimer = setTimeout(() => primeBuffer(time), 120);
 });
 
 async function primeBuffer(t) {
   const v = state.video;
   const depth = state.bufferInfo?.depth ?? 0;
-  const frames = v ? Math.min(depth - 1, Math.floor(t * v.fps)) : 0;
-  if (!v || state.playing || state.exporting || depth < 2 || frames < 2) {
-    // ensure a superseded prime never leaves the pump paused
-    state.priming = false;
-    $('#prime-badge').classList.add('hidden');
-    return;
+  if (!v || state.playing || state.exporting || depth < 2) return endPrime();
+
+  // Only refill as far back as the chain can actually see — a 2-frame chain
+  // primes instantly instead of stepping through the whole buffer.
+  const frames = Math.min(depth - 1, chainReachAt(t) + 1, Math.floor(t * v.fps));
+  if (frames < 1) {
+    // Nothing to rebuild, but the scrub may have left junk in the ring.
+    resetRingHistory();
+    engine.pushFrame(v.el);
+    noteHead(v.el.currentTime, v.fps);
+    return endPrime();
   }
 
+  // Reuse what the ring already holds: seeking forward a few frames from an
+  // exact position only needs those few frames, not a full rebuild. Stepping
+  // with the arrow keys usually needs nothing at all.
+  const ahead = headFrame >= 0 ? frameIndex(t, v.fps) - headFrame : -1;
+  const reusable = ahead >= 0 && ahead <= frames && headRun + ahead > frames;
+  if (reusable && ahead === 0) return endPrime();
+
+  const first = reusable ? ahead - 1 : frames;   // frames still missing
   const my = ++primeToken;
   state.priming = true;
-  $('#prime-badge').classList.remove('hidden');
-  const stepper = new SeekStepper(v.url);
+  const badge = $('#prime-badge');
+  badge.classList.remove('hidden');
   try {
-    await stepper.ready();
-    engine.resetHistory();
-    for (let i = frames; i >= 0; i--) {
+    const stepper = await getPrimeStepper(v);
+    if (!reusable) resetRingHistory();
+    for (let i = first; i >= 0; i--) {
       if (my !== primeToken || state.playing || state.video !== v) return;
-      await stepper.seek(t - i / v.fps + 0.0001);
+      badge.textContent = `RECONSTRUYENDO ${first - i + 1}/${first + 1}`;
+      const frameTime = t - i / v.fps;
+      await stepper.seek(frameTime);
       engine.pushFrame(stepper.video);
+      noteHead(frameTime, v.fps);
     }
   } catch { /* priming is best-effort */ } finally {
-    stepper.dispose();
-    if (my === primeToken) {
-      state.priming = false;
-      $('#prime-badge').classList.add('hidden');
-    }
+    if (my === primeToken) endPrime();
   }
+}
+
+function endPrime() {
+  state.priming = false;
+  const badge = $('#prime-badge');
+  badge.classList.add('hidden');
+  badge.textContent = 'RECONSTRUYENDO…';
 }
 
 on('video-replaced', () => { fpsRefined = false; });
@@ -210,7 +330,7 @@ function renderLoop() {
   const v = state.video;
   if (!v) return;
 
-  if (!hasRVFC && state.playing) engine.pushFrame(v.el);
+  if (!hasRVFC && state.playing) ingest(v.el);
 
   const t = v.el.currentTime;
   if (!state.exporting && state.playing && t >= state.trim.out - 0.02) {
@@ -299,11 +419,14 @@ initTransport({
   seek: seekTo,
   togglePlay,
   goStart: () => seekTo(state.trim.in),
+  step: stepFrames,
 });
 initLoaderUI();
 initHelpUI();
 initZoom();
 initSettingsUI();
+initTrackPoints();
+initBrowser(engine);
 initChain();
 initTimemap();
 setTimemapResolver((fx, t) => resolveParams(fx, t ?? 0));

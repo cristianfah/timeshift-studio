@@ -1,16 +1,20 @@
-// Transport bar + main timeline: play/pause/loop, scrub, trim handles,
-// timecode. Keyframe markers are layered on top by src/ui/timelineKeys.js.
+// Transport bar + main timeline: play/pause/loop, frame stepping, scrub with
+// frame snapping, trim handles, timecode and a hover thumbnail of the frame
+// under the cursor. Keyframe markers are layered on top by src/ui/anim.js.
 
 import { $, clamp, timecode } from '../util/dom.js';
-import { state, emit } from '../state.js';
+import { state, emit, on } from '../state.js';
+import { SeekStepper } from '../engine/video.js';
 
 let hooks = null;
 
 export function initTransport(h) {
-  hooks = h; // { seek(t), togglePlay(), goStart() }
+  hooks = h; // { seek(t), togglePlay(), goStart(), step(frames) }
 
   $('#btn-play').addEventListener('click', () => hooks.togglePlay());
   $('#btn-gostart').addEventListener('click', () => hooks.goStart());
+  $('#btn-step-back').addEventListener('click', () => hooks.step(-1));
+  $('#btn-step-fwd').addEventListener('click', () => hooks.step(1));
   $('#btn-loop').addEventListener('click', (e) => {
     state.loop = !state.loop;
     e.currentTarget.classList.toggle('active', state.loop);
@@ -23,14 +27,18 @@ export function initTransport(h) {
     if (e.target.matches('input, select, textarea')) return;
     if (e.code === 'Space') { e.preventDefault(); hooks.togglePlay(); }
     if (e.code === 'Home') hooks.goStart();
+    if (e.code === 'ArrowLeft') { e.preventDefault(); hooks.step(e.shiftKey ? -10 : -1); }
+    if (e.code === 'ArrowRight') { e.preventDefault(); hooks.step(e.shiftKey ? 10 : 1); }
   });
 
   initTimelineScrub();
   initTrimHandles();
+  initHoverThumb();
+  on('video-loaded', () => { disposeThumb(); });
 }
 
 export function enableTransport(enabled) {
-  for (const id of ['#btn-play', '#btn-gostart', '#btn-loop']) {
+  for (const id of ['#btn-play', '#btn-gostart', '#btn-loop', '#btn-step-back', '#btn-step-fwd']) {
     $(id).disabled = !enabled;
   }
 }
@@ -54,11 +62,15 @@ function initTimelineScrub() {
   tl.addEventListener('pointermove', (e) => {
     if (scrubbing) hooks.seek(timeAtEvent(e), { scrub: true });
   });
-  tl.addEventListener('pointerup', (e) => {
+  const settle = (e) => {
     if (!scrubbing) return;
     scrubbing = false;
-    hooks.seek(timeAtEvent(e), { scrub: false }); // final: triggers prime
-  });
+    // Final position: rebuilds real frame history so the frame under the
+    // playhead is shown exactly as it will be exported.
+    hooks.seek(timeAtEvent(e), { scrub: false });
+  };
+  tl.addEventListener('pointerup', settle);
+  tl.addEventListener('pointercancel', settle);
 }
 
 function initTrimHandles() {
@@ -84,6 +96,58 @@ function initTrimHandles() {
   }
 }
 
+// ---------- hover thumbnail: see where you are about to land ----------
+
+let thumbStepper = null;
+let thumbBusy = false;
+let thumbWanted = null;
+
+function disposeThumb() {
+  thumbStepper?.dispose();
+  thumbStepper = null;
+}
+
+function initHoverThumb() {
+  const tl = $('#timeline');
+  const box = $('#tl-thumb');
+
+  tl.addEventListener('pointermove', (e) => {
+    if (!state.video) return;
+    const t = timeAtEvent(e);
+    const rect = tl.getBoundingClientRect();
+    box.classList.remove('hidden');
+    box.style.left = `${clamp(e.clientX - rect.left, 60, rect.width - 60)}px`;
+    $('#tl-thumb-time').textContent = timecode(t, state.video.fps);
+    thumbWanted = t;
+    drainThumb();
+  });
+  tl.addEventListener('pointerleave', () => box.classList.add('hidden'));
+}
+
+async function drainThumb() {
+  if (thumbBusy || thumbWanted === null) return;
+  const v = state.video;
+  if (!v) return;
+  thumbBusy = true;
+  try {
+    if (!thumbStepper) {
+      thumbStepper = new SeekStepper(v.url);
+      await thumbStepper.ready();
+    }
+    while (thumbWanted !== null) {
+      const t = thumbWanted;
+      thumbWanted = null;
+      await thumbStepper.seek(t);
+      const cv = $('#tl-thumb-canvas');
+      cv.getContext('2d').drawImage(thumbStepper.video, 0, 0, cv.width, cv.height);
+    }
+  } catch {
+    disposeThumb(); // decoding a second copy is best-effort
+  } finally {
+    thumbBusy = false;
+  }
+}
+
 /** Called every animation frame from the main loop. */
 export function updateTransport() {
   const v = state.video;
@@ -93,6 +157,9 @@ export function updateTransport() {
 
   $('#timecode').textContent =
     `${timecode(t, v.fps)} / ${timecode(dur, v.fps)}`;
+  // floor, not round: the counter must name the frame being displayed, and
+  // seeks land on frame centres ((f + 0.5) / fps).
+  $('#frame-counter').textContent = `f${Math.floor(t * v.fps + 0.001)}`;
   $('#btn-play').textContent = state.playing ? '❚❚' : '▶';
 
   $('#tl-playhead').style.left = `${(t / dur) * 100}%`;

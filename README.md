@@ -46,12 +46,23 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
   - `VIENTO` — disolución direccional en partículas: smear por espacio y
     tiempo a lo largo del viento, con turbulencia y grano parpadeante.
     *Directional particle dissolution through space and time.*
-  - `MOTION_TRACK` — tracking de movimiento real (diferencia de frames →
-    regiones conectadas → tracks con ID estable, suavizado EMA,
-    persistencia e inercia), dibujado como overlay de laboratorio: cajas /
-    esquinas / círculos, líneas entre vecinos o vectores de velocidad y
+  - `MOTION_TRACK` — dos trackers reales en un efecto.
+    **AUTO**: sustracción de fondo (modelo EMA con actualización selectiva,
+    así el sujeto nunca se aprende como fondo) → erosión/dilatación →
+    regiones conectadas → asociación por posición predicha, con IDs
+    estables, inercia y persistencia.
+    **PUNTOS**: eliges tú qué seguir — clic en el visor y cada punto guarda
+    un parche de luminancia normalizado que se re-localiza cada frame con
+    búsqueda SAD gruesa-fina (tabla de sumas para la media, sesgo de
+    proximidad contra texturas repetidas, radio que se ensancha tras un
+    fallo y re-búsqueda global si se pierde). El clic se ancla solo al
+    detalle con más contraste que haya cerca, el parche se adapta despacio
+    y cada punto reporta su confianza.
+    Se dibuja como overlay de laboratorio: cajas / esquinas / círculos /
+    mirillas, estelas, IDs, líneas entre vecinos o vectores de velocidad y
     lecturas numéricas; se compone en shader y se exporta a resolución
-    completa. *Real motion tracking rendered as a lab overlay, fully
+    completa. *Two real trackers — background-subtraction auto detection and
+    user-placed template points — rendered as a lab overlay, fully
     exportable.*
 - **Animación de parámetros / Parameter animation** — todo parámetro
   numérico se anima por dos vías:
@@ -72,6 +83,21 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
   original recortado y alineado (AAC u Opus). Barra de progreso y
   cancelación. *Fallback visible:* MediaRecorder → WebM en tiempo real si
   WebCodecs no está disponible.
+- **Explorador de efectos con vista previa en vivo / Live effect browser** —
+  `EXPLORAR EFECTOS…` abre una rejilla donde cada efecto y cada *look* se
+  renderiza **sobre tu propio clip, en movimiento**: un segundo motor de
+  384px con su propio ring buffer (alimentado de los frames que ya decodifica
+  el motor principal, sin decodificar dos veces) va rotando entre las
+  tarjetas, y la que tienes bajo el cursor se muestra grande junto a su
+  descripción y sus presets — pasar por un preset lo previsualiza, hacer clic
+  lo añade. Con filtro de texto.
+- **Timeline exacto al frame / Frame-accurate timeline** — un clic en
+  cualquier punto del timeline salta al frame que contiene ese instante y
+  reconstruye el buffer con los frames reales anteriores (sólo hasta donde
+  la cadena mira, así es casi instantáneo): lo que ves en pausa es
+  exactamente lo que se exporta. Avance frame a frame con `←/→` (shift = 10)
+  o los botones ◀| |▶, contador de frame en el transporte y miniatura del
+  frame bajo el cursor al pasar por el timeline.
 - **Presets** — chips por efecto, *looks* globales (`FRAGMENTED`, `SMEAR`,
   `SUBTLE`, `DATAMOSH`, `GHOST`, `CHROMATIC`, `TRACKER`, `PIXELCRASH`,
   `VENDAVAL`), y export/import del stack
@@ -91,11 +117,15 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
    npx serve .
    ```
 2. Arrastra un clip (mp4/webm/mov) al visor. Todo se procesa localmente.
-3. Elige un *look* o añade efectos a la cadena (panel derecho). Reordena con
-   ▲▼, activa/desactiva con el checkbox, pliega con ▾.
+3. Pulsa **EXPLORAR EFECTOS…** para ver todos los efectos y *looks*
+   previsualizados en vivo sobre tu clip; clic en una tarjeta para añadirla.
+   Reordena con ▲▼, activa/desactiva con el checkbox, pliega con ▾.
 4. Anima: pulsa **⧗** junto a un slider para fijar keyframes en el playhead,
    o **∿** para abrir el LFO. Los marcadores viven en el timeline.
 5. Recorta con los tiradores teal del timeline; el loop respeta el recorte.
+   Clic en el timeline = ir a ese frame exacto; `←/→` avanza frame a frame.
+   Para trackear, añade `MOTION_TRACK`, pulsa **ELEGIR PUNTOS EN EL VISOR** y
+   haz clic sobre lo que quieras seguir.
 6. **EXPORTAR** → elige escala y audio → **RENDERIZAR**. El MP4 se descarga
    al terminar. Guarda tu setup con **GUARDAR PRESET .JSON**.
 
@@ -103,12 +133,16 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
 
 1. Serve the folder (or just open `index.html`): `npx serve .`
 2. Drag a clip (mp4/webm/mov) onto the viewport — everything stays local.
-3. Pick a global look or stack effects from the right panel; reorder with
-   ▲▼, toggle each effect, collapse cards.
+3. Hit **EXPLORAR EFECTOS…** for a grid of live previews of every effect and
+   look running on your own clip; click a tile to add it. Reorder with ▲▼,
+   toggle each effect, collapse cards.
 4. Animate: hit **⧗** next to any slider to drop a keyframe at the playhead,
    or **∿** for the LFO editor. Keyframe markers live on the main timeline
    (drag to move, right-click to delete, alt+click cycles easing).
 5. Trim with the teal timeline handles; looping respects the trim region.
+   Clicking the timeline jumps to that exact frame; `←/→` steps frame by
+   frame. To track something, add `MOTION_TRACK`, hit **ELEGIR PUNTOS EN EL
+   VISOR** and click on your subject.
 6. **EXPORTAR** → pick scale/audio → **RENDERIZAR**; the MP4 downloads when
    done. Save/load the whole setup as a JSON preset.
 
@@ -119,7 +153,9 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
 - El alcance temporal máximo = frames del buffer. Sube `BUFFER` (2–8s) si un
   efecto avisa que su delay queda recortado.
 - Al hacer scrub en pausa, el buffer se re-construye automáticamente con el
-  historial real (indicador `RELLENANDO BUFFER…`).
+  historial real (indicador `RECONSTRUYENDO…`); sólo se rellenan los frames
+  que la cadena activa realmente lee.
+- El explorador de efectos sólo renderiza mientras está abierto, y a 384px.
 
 ## Arquitectura / Architecture
 
@@ -131,7 +167,10 @@ src/
   effects/            10 módulos shader + registry + looks (hot-swappable)
   animation/          lfo.js · keyframes.js · resolver.js (puro: (fx,t)→valores)
   export/             exporter.js (WebCodecs + mp4-muxer) · fallback.js (WebM)
-  ui/                 transport · chain · anim · timemap · presets · export · toast
+  ui/                 transport (scrub exacto al frame, miniaturas) · browser
+                      (rejilla con motor de preview propio) · trackpoints
+                      (elegir puntos en el visor) · chain · anim · timemap
+                      · presets · export · zoom · toast
 ```
 
 ## Créditos e inspiración / Credits & inspiration
