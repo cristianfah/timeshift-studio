@@ -45,21 +45,25 @@ export function paramTarget(
   return `fx.${slot}.${type}.${key}`;
 }
 
-export function lfoEnabledTarget(
-  slot: number,
-  type: string,
-  key: string,
-): string {
-  return `${paramTarget(slot, type, key)}.lfo`;
-}
+/**
+ * Modulators are a fixed bank per slot rather than one LFO per parameter:
+ * declaring the latter statically would cost ~2000 controls. Each modulator
+ * names the parameter it drives.
+ */
+export const MODULATORS_PER_SLOT = 4;
 
-export function lfoFieldTarget(
+export const modulatorIndexes: readonly number[] = Array.from(
+  { length: MODULATORS_PER_SLOT },
+  (_, i) => i,
+);
+
+export function modulatorTarget(
   slot: number,
   type: string,
-  key: string,
-  field: "amp" | "phase" | "rate" | "shape",
+  index: number,
+  field: "amp" | "enabled" | "parameter" | "phase" | "rate" | "shape",
 ): string {
-  return `${paramTarget(slot, type, key)}.lfo.${field}`;
+  return `fx.${slot}.${type}.mod${index}.${field}`;
 }
 
 /** User-placed tracking seeds for a slot, stored as JSON so undo covers them. */

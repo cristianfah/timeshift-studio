@@ -1,18 +1,14 @@
 // Animated parameter resolution.
 //
 // Keyframes come from the Toolcraft timeline (already evaluated at the current
-// time by the runtime); the LFO offset is added on top and the result is
+// time by the runtime); modulator offsets are added on top and the result is
 // clamped to the parameter range and rounded to its step. Preview, time-map
 // and exporter all go through this one function, so they cannot drift apart.
 
 import { registry } from "../effects/registry";
-import type { EffectParamValues } from "../types";
+import { modulatorIndexes, modulatorTarget, paramTarget } from "../targets";
+import type { EffectParamValues, NumericParamDef } from "../types";
 import { isSelectParam } from "../types";
-import {
-  lfoEnabledTarget,
-  lfoFieldTarget,
-  paramTarget,
-} from "../targets";
 import { lfoValue, type Lfo } from "./lfo";
 
 /** Reads one runtime value by target. */
@@ -26,11 +22,50 @@ function asString(value: unknown, fallback: string): string {
   return typeof value === "string" && value.length > 0 ? value : fallback;
 }
 
+/** Total modulator offset applied to each parameter of a slot at `time`. */
+function modulatorOffsets(
+  slot: number,
+  type: string,
+  raw: ValueLookup,
+  time: number,
+): Map<string, number> {
+  const offsets = new Map<string, number>();
+
+  for (const index of modulatorIndexes) {
+    if (raw(modulatorTarget(slot, type, index, "enabled")) !== true) {
+      continue;
+    }
+
+    const key = asString(
+      raw(modulatorTarget(slot, type, index, "parameter")),
+      "",
+    );
+
+    if (!key) {
+      continue;
+    }
+
+    const lfo: Lfo = {
+      amp: asNumber(raw(modulatorTarget(slot, type, index, "amp")), 0),
+      phase: asNumber(raw(modulatorTarget(slot, type, index, "phase")), 0),
+      rate: asNumber(raw(modulatorTarget(slot, type, index, "rate")), 0.5),
+      shape: asString(
+        raw(modulatorTarget(slot, type, index, "shape")),
+        "sine",
+      ),
+    };
+
+    offsets.set(key, (offsets.get(key) ?? 0) + lfoValue(lfo, time));
+  }
+
+  return offsets;
+}
+
 /**
  * Resolve every parameter of one chain slot at clip time `time`.
  *
- * @param evaluated reads keyframe-evaluated values (use the runtime helper)
- * @param raw reads plain values that are never keyframed (LFO settings)
+ * @param evaluated reads keyframe-evaluated values (runtime helper)
+ * @param raw reads plain values that are never keyframed (modulator settings)
  */
 export function resolveSlotParams({
   evaluated,
@@ -52,6 +87,8 @@ export function resolveSlotParams({
     return out;
   }
 
+  const offsets = modulatorOffsets(slot, type, raw, time);
+
   for (const def of mod.params) {
     const target = paramTarget(slot, type, def.key);
 
@@ -60,51 +97,28 @@ export function resolveSlotParams({
       continue;
     }
 
-    let v = asNumber(evaluated(target), def.def);
+    const numeric: NumericParamDef = def;
+    let v = asNumber(evaluated(target), numeric.def) + (offsets.get(numeric.key) ?? 0);
 
-    if (raw(lfoEnabledTarget(slot, type, def.key)) === true) {
-      const lfo: Lfo = {
-        amp: asNumber(
-          raw(lfoFieldTarget(slot, type, def.key, "amp")),
-          (def.max - def.min) * 0.25,
-        ),
-        phase: asNumber(raw(lfoFieldTarget(slot, type, def.key, "phase")), 0),
-        rate: asNumber(raw(lfoFieldTarget(slot, type, def.key, "rate")), 0.5),
-        shape: asString(
-          raw(lfoFieldTarget(slot, type, def.key, "shape")),
-          "sine",
-        ),
-      };
+    v = Math.min(numeric.max, Math.max(numeric.min, v));
 
-      v += lfoValue(lfo, time);
-    }
-
-    v = Math.min(def.max, Math.max(def.min, v));
-
-    if (def.step >= 1) {
+    if (numeric.step >= 1) {
       v = Math.round(v);
     }
 
-    out[def.key] = v;
+    out[numeric.key] = v;
   }
 
   return out;
 }
 
-/** True when any parameter of the slot is driven by an LFO. */
-export function slotHasLfo(
+/** True when any modulator of the slot is active. */
+export function slotHasModulation(
   slot: number,
   type: string,
   raw: ValueLookup,
 ): boolean {
-  const mod = registry[type];
-
-  if (!mod) {
-    return false;
-  }
-
-  return mod.params.some(
-    (def) =>
-      !isSelectParam(def) && raw(lfoEnabledTarget(slot, type, def.key)) === true,
+  return modulatorIndexes.some(
+    (index) => raw(modulatorTarget(slot, type, index, "enabled")) === true,
   );
 }
