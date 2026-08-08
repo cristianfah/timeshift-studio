@@ -36,6 +36,26 @@ function setValue(
   });
 }
 
+/**
+ * Layers that own a media asset (the imported clip, images, models) are the
+ * product's source material, not chain layers. Deleting them would cascade
+ * (layers.delete removes mediaAssets on the same layerId), wiping the clip.
+ * Only effect layers — layers without any bound media asset — are chain
+ * layers and can be replaced by a look.
+ */
+function getChainLayerIds(state: ToolcraftState): string[] {
+  const mediaLayerIds = new Set(
+    state.mediaAssets.map((asset) => asset.layerId),
+  );
+
+  return state.layers
+    .filter(
+      (layer) =>
+        layer.kind !== "group" && !mediaLayerIds.has(layer.id),
+    )
+    .map((layer) => layer.id);
+}
+
 /** Replaces the chain with a look: fresh layers, fresh slots, fresh values. */
 function applyLook(
   lookName: string,
@@ -50,9 +70,9 @@ function applyLook(
 
   const group = `look-${lookName}`;
 
-  // Drop the existing chain layers.
-  for (const layer of state.layers.filter((l) => l.kind !== "group")) {
-    dispatch({ layerId: layer.id, type: "layers.delete" });
+  // Drop the existing chain layers only — never the clip's media layer.
+  for (const layerId of getChainLayerIds(state)) {
+    dispatch({ layerId, type: "layers.delete" });
   }
 
   const order: number[] = [];
@@ -88,8 +108,8 @@ function applyLook(
 }
 
 function clearChain(state: ToolcraftState, dispatch: Dispatch): void {
-  for (const layer of state.layers.filter((l) => l.kind !== "group")) {
-    dispatch({ layerId: layer.id, type: "layers.delete" });
+  for (const layerId of getChainLayerIds(state)) {
+    dispatch({ layerId, type: "layers.delete" });
   }
 
   setValue(dispatch, CHAIN_ORDER_TARGET, serializeOrder([]), "chain-clear");
