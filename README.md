@@ -1,11 +1,49 @@
 # TIMESHIFT_STUDIO
 
 **Laboratorio de efectos temporales de video en tiempo real, para cineastas AI.**
-Real-time temporal video effects lab for AI filmmakers — slit-scan, time
-displacement, block shuffle, temporal echo, RGB time split and scan sweep,
-running 100% client-side on WebGL2. No uploads, no server, no build step.
+Real-time temporal video effects lab for AI filmmakers — running 100% client-side.
 
-![TIMESHIFT_STUDIO — block shuffle + RGB split (look DATAMOSH)](docs/screenshots/main-datamosh.png)
+> ⚠️ **Migración a Toolcraft en progreso.**
+> Esta app está siendo migrada de la arquitectura vanilla original a
+> **Toolcraft** (React 19 + Vite + Tailwind 4 + Base UI).
+> La versión original está congelada en [`legacy/vanilla-v1/`](./legacy/vanilla-v1/).
+> La app en desarrollo se publica en:
+> **https://cristianfah.github.io/timeshift-studio/**
+
+## Estado actual
+
+- ✅ Timeline extendida por defecto
+- ✅ Canvas con preview del clip sobre WebGL2
+- ✅ Cadena de efectos (8 slots × 10 tipos)
+- ✅ Acceptance y tests de producto
+- 🔄 Timeline: falta posicionarla abajo (estilo After Effects / Jitter.com)
+- 🔄 Engine: falta renderizar frames de mp4 en WebGL2
+- 🔄 Gate de verificación: 556/557 tests pasan (fallo pre-existente del framework solo en macOS)
+
+## Arquitectura
+
+```
+Toolcraft (React 19 + Vite + Tailwind 4 + Base UI)
+  src/
+    app/
+      app-schema.ts          Esquema de producto (defineToolcraft)
+      app-composition.tsx    Composición de producto (ToolcraftAppComposition)
+      app-acceptance-data.ts Acceptance de producto
+      timeshift/
+        react/               Componentes React (canvas, timeline, efectos)
+        engine/              Motor WebGL2, ring buffer, shaders
+        schema/              Esquema de efectos y secciones
+        targets.ts           Discriminadores de cadena
+```
+
+---
+
+## Versión original (legacy/vanilla-v1/)
+
+La versión original sin build step está congelada en `legacy/vanilla-v1/`.
+Para ejecutarla: `npx serve legacy/vanilla-v1/`
+
+> Legacy docs continuan abajo para referencia.
 
 ## Capturas / Screenshots
 
@@ -13,7 +51,9 @@ running 100% client-side on WebGL2. No uploads, no server, no build step.
 | --- | --- |
 | ![Slice bands](docs/screenshots/slice-bands.png) | ![Export](docs/screenshots/export-dialog.png) |
 
-## Características / Features
+---
+
+## Características / Features (versión original)
 
 - **Motor WebGL2** — el video decodificado alimenta un *ring buffer* de
   texturas (`TEXTURE_2D_ARRAY`); todos los efectos son fragment shaders que
