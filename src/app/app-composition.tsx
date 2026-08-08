@@ -9,9 +9,15 @@ import { clipUrlRef } from "./timeshift/react/clip-url";
 import { createPanelActionHandler } from "./timeshift/react/panel-actions";
 import { openEffectBrowser } from "./timeshift/react/effect-browser";
 import { timeshiftControlRenderers } from "./timeshift/react/control-renderers";
+import { TimelineDefaultOn } from "./timeshift/react/timeline-default";
 
 export const appComposition: ToolcraftAppComposition = {
-  canvasContent: <TimeshiftCanvas />,
+  canvasContent: (
+    <>
+      <TimelineDefaultOn />
+      <TimeshiftCanvas />
+    </>
+  ),
   controlRenderers: timeshiftControlRenderers,
   exportRenderer: createExportRenderer(() => clipUrlRef.current),
   onPanelAction: createPanelActionHandler({

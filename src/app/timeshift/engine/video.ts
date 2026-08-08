@@ -1,7 +1,5 @@
-// Video source handling: file loading, metadata, fps estimation and a
-// seek-stepper used for offline work (export, buffer priming).
-
-import type { VideoSource } from "../types";
+// Video source handling: metadata, fps estimation and a seek-stepper used
+// for offline work (export, buffer priming).
 
 type VideoFrameMetadataLike = {
   mediaTime: number;
@@ -26,45 +24,6 @@ export function asFrameCallbackHost(
   return supportsVideoFrameCallback()
     ? (video as VideoFrameCallbackHost)
     : null;
-}
-
-/** Load a video File and resolve with element + metadata. */
-export function loadVideoFile(file: File): Promise<VideoSource> {
-  return new Promise((resolve, reject) => {
-    const url = URL.createObjectURL(file);
-    const el = document.createElement("video");
-
-    el.preload = "auto";
-    el.muted = true;
-    el.playsInline = true;
-    el.crossOrigin = "anonymous";
-    el.src = url;
-    el.addEventListener(
-      "loadedmetadata",
-      () => {
-        if (!el.videoWidth || !el.videoHeight || !isFinite(el.duration)) {
-          reject(new Error("metadata"));
-          return;
-        }
-
-        resolve({
-          duration: el.duration,
-          el,
-          file,
-          fps: 30, // provisional — refined by estimateFps() during playback
-          fpsEstimated: false,
-          height: el.videoHeight,
-          name: file.name,
-          url,
-          width: el.videoWidth,
-        });
-      },
-      { once: true },
-    );
-    el.addEventListener("error", () => reject(new Error("decode")), {
-      once: true,
-    });
-  });
 }
 
 /**

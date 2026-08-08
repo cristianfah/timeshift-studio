@@ -157,18 +157,6 @@ export type AnyEffectModule = EffectModule<EffectParamValues>;
 
 export type EffectRegistry = Readonly<Record<string, AnyEffectModule>>;
 
-export type VideoSource = {
-  duration: number;
-  el: HTMLVideoElement;
-  file: File;
-  fps: number;
-  fpsEstimated: boolean;
-  height: number;
-  name: string;
-  url: string;
-  width: number;
-};
-
 export type RingBufferInfo = {
   depth: number;
   height: number;
