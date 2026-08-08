@@ -153,7 +153,7 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 
 ### Controls
 
-- Decision: 8 slots de efecto × 10 tipos = 424 secciones, ~2480 controles. Generados en effect-sections.ts. Discriminador `fx.selection = "<slot>:<tipo>"`. Moduladores LFO: banco fijo de 4 por slot (MODULATORS_PER_SLOT = 4 en targets.ts). Pendiente confirmar si 4 LFOs por slot basta o necesita 1 por parámetro (~2000 controles extra).
+- Decision: 8 slots de efecto × 10 tipos = 424 secciones, ~2480 controles. Generados en effect-sections.ts. Discriminador `fx.selection = "<slot>:<tipo>"`. Moduladores LFO: banco fijo de 4 por slot (MODULATORS_PER_SLOT = 4 en targets.ts). **Confirmado por Cristian (2026-08-08): 4 LFOs por slot alcanza, no se agregan ~2000 controles extra.**
 - Reason: El esquema Toolcraft es estático; no se puede crear/eliminar controles en runtime.
 - Evidence: effect-sections.ts, app-sections.ts, targets.ts.
 
