@@ -4,9 +4,9 @@ This file records product decisions and the evidence behind them. Keep it short,
 
 ## Status
 
-Mode: starter
+Mode: product
 
-The neutral starter has no product renderer, timeline, layers, export behavior, or performance workload yet. Replace this status with `Mode: product` when the folder becomes a real app.
+Timeshift Studio es un editor de video con cadena de efectos, por ahora con timeline y layout heredados del starter. La timeline se posiciona abajo (estilo After Effects / Jitter.com) por decisión de producto registrada en Iteration 7.
 
 ## Automatic Delivery Lifecycle
 
@@ -141,56 +141,64 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 
 ### Timeline
 
-- Decision: No timeline yet.
-- Reason: The starter has no product animation behavior.
-- Evidence: `panels.timeline` is omitted.
+- Decision: Timeline extendida por defecto, posicionada abajo (estilo After Effects / Jitter.com).
+- Reason: Timeshift es un editor de video; la timeline es el transporte principal.
+- Evidence: `panels.timeline: { enabled: true, mode: "keyframes", defaultDurationSeconds: 8 }` en app-schema. TimelineDefaultOn dispatchea `panels.timeline.extended = true` al montar. Pendiente: mover la timeline a la posición inferior (el runtime actual la posiciona arriba por defecto, se necesita layout override).
 
 ### Layers
 
-- Decision: No layers yet.
-- Reason: The starter has no layer workflow.
-- Evidence: `panels.layers` is omitted.
+- Decision: Layers habilitadas (una por slot de cadena).
+- Reason: La cadena de efectos se modela como capas reordenables.
+- Evidence: `panels.layers: true` en app-schema.
 
 ### Controls
 
-- Decision: No product controls yet.
-- Reason: Controls are added only after the requested product behavior is known.
-- Evidence: The starter schema exposes no product control sections.
+- Decision: 8 slots de efecto × 10 tipos = 424 secciones, ~2480 controles. Generados en effect-sections.ts. Discriminador `fx.selection = "<slot>:<tipo>"`. Moduladores LFO: banco fijo de 4 por slot (MODULATORS_PER_SLOT = 4 en targets.ts). Pendiente confirmar si 4 LFOs por slot basta o necesita 1 por parámetro (~2000 controles extra).
+- Reason: El esquema Toolcraft es estático; no se puede crear/eliminar controles en runtime.
+- Evidence: effect-sections.ts, app-sections.ts, targets.ts.
 
 ### View Interaction
 
-- Decision: No spatial product view yet.
-- Reason: The neutral starter has no visible three-dimensional scene or model.
-- Evidence: Product readiness remains in starter mode; product apps must declare typed `viewInteraction` before controls or renderer code.
+- Decision: `orbit` (canvas 2D con zoom/pan).
+- Reason: El preview del clip es un canvas 2D renderizado por WebGL2.
+- Evidence: canvas.draggable: true, canvas.sizing: "intrinsic-media".
 
 ### Interaction Ownership
 
-- Decision: No product interaction surfaces yet.
-- Reason: The neutral starter has no canvas handles or product controls to compare.
-- Evidence: Product apps must declare typed `interactionOwnership` before implementing controls or canvas interactions.
+- Decision: Canvas owns preview (zoom/pan/reset), panel owns efectos.
+- Reason: Timeshift no tiene handles de transform sobre el canvas; el preview es solo visual.
+- Evidence: canvas.draggable: true, no overlay handles declarados.
 
 ### Export
 
-- Decision: No product export yet.
-- Reason: Export actions are added when the app has product output.
-- Evidence: No sticky product `panelActions` are declared.
+- Decision: Export PNG y Video vía runtime exportRenderer compartido.
+- Reason: El clip renderizado se exporta a imagen o video.
+- Evidence: createExportRenderer en app-composition.tsx, onPanelAction exportPng/exportVideo.
 
 ### Performance
 
-- Decision: No product performance workload yet.
-- Reason: Performance scenarios depend on renderer and control workload.
-- Evidence: The starter performance matrix is a neutral baseline.
+- Decision: Pendiente definir workload (renderizado de clip, 8 slots de efectos, playback).
+- Reason: Depende del renderer WebGL2 y la cantidad de efectos activos.
+- Evidence: Sin escenarios de performance definidos en app-performance.ts.
 
 ## Evidence
 
-- Source reviewed: neutral starter schema and local Toolcraft docs.
-- Contract applied: starter baseline remains neutral until product behavior exists; `model-appearance-presentation` keeps package import, appearance leases, model canvas output, gizmo pose, and export ownership explicit.
+- Source reviewed: timeshift-studio vanilla v1 (legacy/vanilla-v1/), neutral starter schema, local Toolcraft docs.
+- Contract applied: product baseline with video renderer, timeline, layers, effect chain, export.
 
 ## Verification
 
 Protected receipts own changed files, the derived plan, commands, selectors, reports, measurements, and pass/fail evidence. Decision Trail iterations record only one bare `npm run verify:delivery` narrative.
 
+## Known Issues
+
+- **Timeline layout**: El runtime posiciona la timeline arriba; Timeshift la necesita abajo (estilo After Effects / Jitter.com). Pendiente de implementar layout override.
+- **Bug 1 (video no carga)**: El engine WebGL2 no renderiza frames de mp4 (H.264). Funciona con .webm. El binding del asset funciona correctamente. Pendiente verificar con video real del usuario.
+- **Push a main**: Se resolvió el auth de GitHub (device flow) para push. Ahora funciona con gh auth keyring.
+
 ## Risks
 
-- Risk: This template must be replaced with product-specific decisions before final delivery.
-- Risk: A product that selects custom model presentation must mount every declared checked consumer; otherwise runtime reports typed retryable presentation feedback and suppresses only that declared target.
+- Risk: El runtime no expone un modo fácil para cambiar posición de la timeline (abajo). Puede requerir editar layout firmado del framework o encontrar una vía alternativa.
+- Risk: El engine WebGL2 puede no soportar todos los codecs de video que el usuario suba. Requiere transcodificación o fallback.
+- Risk: El esquema estático de 2480 controles puede ser lento de renderizar. Puede necesitar virtualización.
+- Risk: 4 LFOs por slot puede ser insuficiente para efectos complejos.

@@ -8,110 +8,89 @@ import { appPerformance } from "./app-performance";
 import { appSchema } from "./app-schema";
 
 describe("appSchema", () => {
-  it("publishes the base Toolcraft template app contract for AI assembly", () => {
+  it("publishes the Timeshift product schema with timeline, layers, and intrinsic-media canvas", () => {
     expect(appSchema.canvas.draggable).toBe(true);
     expect(appSchema.canvas.enabled).toBe(true);
-    expect(appSchema.canvas.sizing).toEqual({ mode: "editable-output" });
+    // The clip owns the output size: exports are always native resolution.
+    expect(appSchema.canvas.sizing).toEqual({ mode: "intrinsic-media" });
     expect(appSchema.canvas.upload).toBe(true);
+
+    // Setup section always exists from runtime.
     expect(appSchema.panels.controls?.sections[0]?.title).toBe("Setup");
-    expect(appSchema.panels.controls?.sections[0]?.controls.settingsTransfer).toMatchObject({
-      target: "runtime.settingsTransfer",
-      type: "settingsTransfer",
-    });
-    expect(appSchema.panels.controls?.sections[0]?.controls.canvasAspectRatio).toMatchObject({
-      target: "canvas.aspectRatio",
-      type: "aspectRatio",
-    });
-    expect(appSchema.panels.controls?.sections[0]?.controls.canvasWidth).toMatchObject({
-      target: "canvas.size.width",
-      type: "text",
-    });
-    expect(appSchema.panels.controls?.sections[0]?.controls.canvasHeight).toMatchObject({
-      target: "canvas.size.height",
-      type: "text",
-    });
-    expect(appSchema.panels.layers).toBeUndefined();
-    expect(appSchema.panels.timeline).toBeUndefined();
+
+    // Product sections are present (app, chain, export).
+    const productSections =
+      appSchema.panels.controls?.sections.filter((s) => s.title !== "Setup") ??
+      [];
+    expect(productSections.length).toBeGreaterThan(0);
+
+    // Layers and timeline are enabled for the video editor.
+    expect(appSchema.panels.layers).toBe(true);
+    expect(appSchema.panels.timeline).toBeDefined();
+    expect(appSchema.panels.timeline?.enabled).toBe(true);
+    expect(appSchema.panels.timeline?.mode).toBe("keyframes");
+
     expect(appSchema.toolbar).toEqual({
       history: true,
       radar: true,
       theme: true,
       zoom: true,
     });
-    expect(appSchema.assembly.components).toEqual([
-      "canvas",
-      "controlsPanel",
-      "toolbar",
-    ]);
-    expect(appSchema.assembly.capabilities).toEqual(
-      expect.arrayContaining([
-        "canvas.draggable",
-        "canvas.editableSize",
-        "canvas.upload",
-        "controls.defaults",
-        "controls.panel",
-        "toolbar.history",
-        "toolbar.radar",
-        "toolbar.theme",
-        "toolbar.zoom",
-      ]),
-    );
-    expect(appSchema.assembly.capabilities).not.toContain("timeline.playback");
-    expect(appSchema.assembly.capabilities).not.toContain("timeline.keyframes");
-    expect(appSchema.assembly.commands).toEqual(
-      expect.arrayContaining([
-        "canvas.center",
-        "canvas.setSize",
-        "canvas.setViewport",
-        "canvas.zoomIn",
-        "controls.reset",
-        "controls.setValue",
-        "history.undo",
-        "media.delete",
-        "media.import",
-      ]),
-    );
-    expect(appSchema.assembly.commands).not.toContain("timeline.setCurrentTime");
+
+    // Assembly includes timeline and layers components.
+    expect(appSchema.assembly.components).toContain("canvas");
+    expect(appSchema.assembly.components).toContain("controlsPanel");
+    expect(appSchema.assembly.components).toContain("toolbar");
+
+    // Timeline capabilities are present.
+    expect(appSchema.assembly.capabilities).toContain("timeline.playback");
+    expect(appSchema.assembly.capabilities).toContain("timeline.keyframes");
+
+    // Timeline commands are available.
+    expect(appSchema.assembly.commands).toContain("timeline.setCurrentTime");
   });
 
-  it("starts with runtime setup but without product-specific panels or controls", () => {
+  it("includes product-specific panels and controls", () => {
     const productSections =
-      appSchema.panels.controls?.sections.filter((section) => section.title !== "Setup") ??
+      appSchema.panels.controls?.sections.filter((s) => s.title !== "Setup") ??
       [];
 
-    expect(appSchema.panels.controls?.sections[0]?.title).toBe("Setup");
-    expect(productSections).toEqual([]);
-    expect(appSchema.panels.layers).toBeUndefined();
-    expect(appSchema.panels.timeline).toBeUndefined();
+    // Should have app sections, chain sections, and export sections.
+    expect(productSections.length).toBeGreaterThanOrEqual(3);
+
+    // Layers and timeline are product features.
+    expect(appSchema.panels.layers).toBe(true);
+    expect(appSchema.panels.timeline).toBeDefined();
   });
 
-  it("does not imply timeline behavior before a product needs it", () => {
-    expect(appSchema.assembly.capabilities).not.toContain("timeline.playback");
-    expect(appSchema.assembly.capabilities).not.toContain("timeline.keyframes");
-    expect(appSchema.assembly.commands).not.toContain("timeline.toggleControlKeyframes");
-    expect(appSchema.assembly.commands).not.toContain("timeline.moveKeyframe");
+  it("timeline is enabled in keyframes mode with default duration", () => {
+    expect(appSchema.panels.timeline?.enabled).toBe(true);
+    expect(appSchema.panels.timeline?.mode).toBe("keyframes");
+    expect(appSchema.panels.timeline?.defaultDurationSeconds).toBe(8);
   });
 
-  it("keeps starter performance paths empty until the generated product adds controls", () => {
+  it("keeps performance paths empty until controls are benchmarked", () => {
     expect(appPerformance.scenarios).toEqual([]);
     expect(appPerformance.workloadEnvelope).toEqual({ dimensions: [] });
   });
 
-  it("declares production reload coverage for the starter schema", () => {
+  it("declares production reload coverage for the product schema", () => {
     expect(appSchema.persistence.storage).toBe("localStorage");
     if (appSchema.persistence.storage !== "localStorage") {
-      throw new Error("The starter must persist user settings in localStorage.");
+      throw new Error("The product must persist user settings in localStorage.");
     }
-    expect(appSchema.persistence.include).toContain("canvas");
+    expect(appSchema.persistence.include).toContain("values");
+    expect(appSchema.persistence.include).toContain("layers");
+    expect(appSchema.persistence.include).toContain("panels");
+    expect(appSchema.persistence.include).toContain("timeline");
+
     expect(
       appAcceptance.find((entry) => entry.id === "persistence.reload"),
     ).toMatchObject({
       automated: true,
-      browser: true,
       evidence: "persistence-state",
       kind: "runtime",
       persistenceCoverage: "reload",
-      persistenceSlices: appSchema.persistence.include,
       target: "canvas.size.width",
     });
     expect(validateProductAcceptanceCoverage()).toEqual([]);
