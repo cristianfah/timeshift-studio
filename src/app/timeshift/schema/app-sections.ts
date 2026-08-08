@@ -20,6 +20,7 @@ export const bufferSecondsOptions = [
 
 export function buildAppSections(): ToolcraftControlSectionSchema[] {
   return [
+    // --- Clip: fuente del video ---
     {
       controls: {
         source: {
@@ -35,6 +36,52 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
       id: "clip-source",
       title: "Clip",
     },
+    // --- Looks: selector de efectos tipo vanilla (grid de 9 looks) ---
+    {
+      controls: {
+        apply: {
+          actions: Object.entries(LOOKS).map(([value, look]) => ({
+            label: look.label,
+            value,
+            variant: "outline" as const,
+          })),
+          description:
+            "Cada look reemplaza la cadena por una combinación ya montada.",
+          label: "Aplicar look",
+          target: "looks.apply",
+          type: "actions",
+        },
+      },
+      id: "looks",
+      title: "Looks",
+    },
+    // --- Cadena de efectos: explorador + limpiar ---
+    {
+      controls: {
+        browser: {
+          defaultValue: "",
+          label: false,
+          target: "chain.browser",
+          type: "effectBrowser",
+        },
+        manage: {
+          actions: [
+            {
+              icon: "eraser" as const,
+              label: "Vaciar cadena",
+              value: "clear",
+              variant: "outline" as const,
+            },
+          ],
+          label: "Cadena completa",
+          target: "chain.manage",
+          type: "actions",
+        },
+      },
+      id: "chain-manage",
+      title: "Cadena de efectos",
+    },
+    // --- Motor de previsualización ---
     {
       controls: {
         previewWidth: {
@@ -65,49 +112,7 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
       id: "engine-budget",
       title: "Motor de previsualización",
     },
-    {
-      controls: {
-        apply: {
-          actions: Object.entries(LOOKS).map(([value, look]) => ({
-            label: look.label,
-            value,
-            variant: "outline" as const,
-          })),
-          description:
-            "Cada look reemplaza la cadena por una combinación ya montada.",
-          label: "Aplicar look",
-          target: "looks.apply",
-          type: "actions",
-        },
-      },
-      id: "looks",
-      title: "Looks",
-    },
-    {
-      controls: {
-        browser: {
-          defaultValue: "",
-          label: false,
-          target: "chain.browser",
-          type: "effectBrowser",
-        },
-        manage: {
-          actions: [
-            {
-              icon: "eraser" as const,
-              label: "Vaciar cadena",
-              value: "clear",
-              variant: "outline" as const,
-            },
-          ],
-          label: "Cadena completa",
-          target: "chain.manage",
-          type: "actions",
-        },
-      },
-      id: "chain-manage",
-      title: "Cadena de efectos",
-    },
+    // --- Reproducción ---
     {
       controls: {
         muted: {
@@ -140,26 +145,6 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
       },
       id: "clip-playback",
       title: "Reproducción",
-    },
-    {
-      controls: {
-        command: {
-          defaultValue: "",
-          description:
-            "Comando equivalente para el prototipo de línea de comandos, en cadenas de slit-scan puro.",
-          label: "Comando",
-          target: targets.renderCommand,
-          type: "code",
-        },
-        copy: {
-          actions: [{ icon: "copy" as const, label: "Copiar", value: "copy-command" }],
-          label: "Portapapeles",
-          target: "command.copy",
-          type: "actions",
-        },
-      },
-      id: "render-command",
-      title: "Comando de render",
     },
   ];
 }
