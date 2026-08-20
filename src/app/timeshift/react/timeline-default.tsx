@@ -18,31 +18,42 @@
 
 import * as React from "react";
 
+import type { ToolcraftCommand } from "@/toolcraft/runtime";
 import { useToolcraftDispatch } from "@/toolcraft/runtime/react";
 
-const TIMELINE_EXTENDED_TARGET = "panels.timeline.extended";
+export const TIMELINE_EXTENDED_TARGET = "panels.timeline.extended";
+
+/**
+ * The two commands the product sends once at boot. Extending the timeline and
+ * docking it at the bottom edge is presentation state, so neither command is a
+ * product value or a history entry.
+ */
+export function timelineDefaultCommands(): readonly ToolcraftCommand[] {
+  return [
+    {
+      target: TIMELINE_EXTENDED_TARGET,
+      type: "controls.setValue",
+      value: true,
+    },
+    // The runtime panel host config for timeline has snapEdges:
+    // ["top", "bottom"]. Setting snapEdge to "bottom" triggers the
+    // useLayoutEffect in usePanelSnapControls, which calls
+    // clampPanelPlacementToViewport so the panel rests at the bottom edge.
+    {
+      panelId: "timeline",
+      patch: { snapEdge: "bottom" },
+      type: "panels.update",
+    },
+  ];
+}
 
 export function TimelineDefaultOn(): null {
   const dispatch = useToolcraftDispatch();
 
   React.useEffect(() => {
-    // Extend the timeline panel on mount.
-    dispatch({
-      target: TIMELINE_EXTENDED_TARGET,
-      type: "controls.setValue",
-      value: true,
-    });
-
-    // Dock the timeline panel at the bottom edge of the viewport.
-    // The runtime panel host config for timeline has snapEdges: ["top", "bottom"].
-    // Setting snapEdge to "bottom" triggers the useLayoutEffect in
-    // usePanelSnapControls, which calls clampPanelPlacementToViewport to
-    // recalculate the offset so the panel rests at the viewport bottom edge.
-    dispatch({
-      panelId: "timeline",
-      patch: { snapEdge: "bottom" },
-      type: "panels.update",
-    });
+    for (const command of timelineDefaultCommands()) {
+      dispatch(command);
+    }
   }, [dispatch]);
 
   return null;

@@ -9,6 +9,8 @@ import * as React from "react";
 
 import type { ToolcraftCommand } from "@/toolcraft/runtime";
 
+import { ENGINE_FPS, isClipMuted, resolveEngineBudget } from "../engine/budget";
+import { resolveClipWindow } from "../engine/clip-window";
 import { Engine } from "../engine/renderer";
 import { createStillPainterFromValues } from "../engine/still-history";
 import { asFrameCallbackHost } from "../engine/video";
@@ -32,12 +34,6 @@ type MountContext = {
   sourceRef: PreviewSourceRef;
   url: string;
 };
-
-function asNumber(value: unknown, fallback: number): number {
-  const n = typeof value === "string" ? Number(value) : value;
-
-  return typeof n === "number" && Number.isFinite(n) ? n : fallback;
-}
 
 /** Natural pixel size of the loaded source, or null while it is still loading. */
 export function previewSourceSize(
@@ -66,15 +62,13 @@ function configureEngine(
     return null;
   }
 
-  const fps = 30;
-  const targetWidth = asNumber(values[targets.previewWidth], 854);
-  const seconds = asNumber(values[targets.bufferSeconds], 3);
+  const budget = resolveEngineBudget(values);
 
   const info = engine.configure({
-    depth: Math.min(300, Math.max(8, Math.round(seconds * fps))),
+    depth: budget.depth,
     srcHeight: size.height,
     srcWidth: size.width,
-    targetWidth,
+    targetWidth: budget.targetWidth,
   });
 
   // A reallocated ring is empty. A clip refills it as it plays; a still has to
@@ -148,7 +142,7 @@ function mountVideo({
   const source: PreviewSource = { element: video, kind: "video" };
 
   video.preload = "auto";
-  video.muted = getValues()[targets.muted] !== false;
+  video.muted = isClipMuted(getValues());
   video.playsInline = true;
   video.src = url;
   sourceRef.current = source;
@@ -160,9 +154,13 @@ function mountVideo({
       return;
     }
 
-    configureEngine(engine, source, getValues());
+    const values = getValues();
+
+    configureEngine(engine, source, values);
+    // The timeline runs over the trimmed region, so its duration is the
+    // region's length rather than the whole clip.
     dispatch({
-      durationSeconds: Math.max(0.1, video.duration),
+      durationSeconds: resolveClipWindow(values, video.duration).lengthSeconds,
       type: "timeline.setDuration",
     });
     // `intrinsic-media` sizing expects the imported media to own the canvas
@@ -233,6 +231,8 @@ export function usePreviewSource({
   previewWidth,
   stillMotion,
   stillMotionAmount,
+  trimIn,
+  trimOut,
 }: {
   bufferSeconds: unknown;
   clipSource: ClipSource | null;
@@ -242,6 +242,8 @@ export function usePreviewSource({
   previewWidth: unknown;
   stillMotion: unknown;
   stillMotionAmount: unknown;
+  trimIn: unknown;
+  trimOut: unknown;
 }): PreviewSourceRef {
   const sourceRef = React.useRef<PreviewSource | null>(null);
   const kind = clipSource?.kind ?? null;
@@ -282,6 +284,27 @@ export function usePreviewSource({
     stillMotion,
     stillMotionAmount,
   ]);
+
+  // Trimming republishes the timeline duration: the region is what the user
+  // scrubs, loops and exports.
+  React.useEffect(() => {
+    const source = sourceRef.current;
+
+    if (source?.kind !== "video" || !source.element.duration) {
+      return;
+    }
+
+    const window = resolveClipWindow(getValues(), source.element.duration);
+
+    dispatch({
+      durationSeconds: window.lengthSeconds,
+      type: "timeline.setDuration",
+    });
+
+    if (source.element.currentTime < window.inSeconds) {
+      source.element.currentTime = window.inSeconds;
+    }
+  }, [clipSource, dispatch, getValues, trimIn, trimOut]);
 
   return sourceRef;
 }

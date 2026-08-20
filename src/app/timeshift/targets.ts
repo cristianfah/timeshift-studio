@@ -83,7 +83,6 @@ export const targets = {
   exportVideoResolution: "export.video.resolution",
   muted: "clip.muted",
   previewWidth: "engine.previewWidth",
-  renderCommand: "clip.renderCommand",
   source: "clip.source",
   stillMotion: "still.motion",
   stillMotionAmount: "still.motionAmount",

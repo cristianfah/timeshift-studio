@@ -73,39 +73,45 @@ const selectValues = (state: ToolcraftState): Record<string, unknown> =>
 
 /**
  * The chain in render order. Layers are the visible truth for order and
- * visibility; `chain.order` maps each position to its parameter slot.
+ * visibility; `chain.order` maps each position to its parameter slot. Grouping
+ * layers keeps that pairing because groups are skipped, not renumbered.
  */
+export function deriveChain(
+  layers: readonly ToolcraftLayer[],
+  values: Record<string, unknown>,
+): readonly ChainEntry[] {
+  const order = parseOrder(values[CHAIN_ORDER_TARGET]);
+  const chainLayers = layers.filter((layer) => layer.kind !== "group");
+
+  return chainLayers.flatMap((layer, index) => {
+    const slot = order[index];
+
+    if (slot === undefined) {
+      return [];
+    }
+
+    const type = values[slotTypeTarget(slot)];
+
+    if (typeof type !== "string" || type === EMPTY_SLOT) {
+      return [];
+    }
+
+    return [
+      {
+        enabled: layer.visible && values[slotEnabledTarget(slot)] !== false,
+        layerId: layer.id,
+        slot,
+        type,
+      },
+    ];
+  });
+}
+
 export function useChain(): readonly ChainEntry[] {
   const layers = useToolcraftSelector(selectLayers);
   const values = useToolcraftSelector(selectValues);
 
-  return React.useMemo(() => {
-    const order = parseOrder(values[CHAIN_ORDER_TARGET]);
-    const chainLayers = layers.filter((layer) => layer.kind !== "group");
-
-    return chainLayers.flatMap((layer, index) => {
-      const slot = order[index];
-
-      if (slot === undefined) {
-        return [];
-      }
-
-      const type = values[slotTypeTarget(slot)];
-
-      if (typeof type !== "string" || type === EMPTY_SLOT) {
-        return [];
-      }
-
-      return [
-        {
-          enabled: layer.visible && values[slotEnabledTarget(slot)] !== false,
-          layerId: layer.id,
-          slot,
-          type,
-        },
-      ];
-    });
-  }, [layers, values]);
+  return React.useMemo(() => deriveChain(layers, values), [layers, values]);
 }
 
 /** Chain entries as engine input, carrying per-instance side data. */

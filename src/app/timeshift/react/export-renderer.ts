@@ -15,6 +15,8 @@ import type {
 } from "@/toolcraft/runtime";
 
 import { resolveSlotParams } from "../animation/resolve";
+import { ENGINE_FPS } from "../engine/budget";
+import { resolveClipWindow, toSourceTime } from "../engine/clip-window";
 import { chainMaxReach, registry } from "../effects/registry";
 import { Engine } from "../engine/renderer";
 import { createStillPainterFromValues } from "../engine/still-history";
@@ -31,6 +33,8 @@ import type { ChainItem, EffectParamValues } from "../types";
 type ExportSession = {
   canvas: HTMLCanvasElement;
   engine: Engine;
+  /** Source duration of the clip, needed to resolve the trimmed region. */
+  duration: number;
   headTime: number;
   height: number;
   /** Only a clip owns a stepper; a still is already fully decoded. */
@@ -178,6 +182,7 @@ async function ensureSession(
 
   session = {
     canvas,
+    duration: stepper?.video.duration ?? 0,
     engine,
     headTime: Number.NaN,
     height,
@@ -239,7 +244,7 @@ export function createExportRenderer(
       }
 
       const chain = chainFromState(state);
-      const fps = 30;
+      const fps = ENGINE_FPS;
       const duration = state.timeline.durationSeconds || 1;
       const reach = chainMaxReach(
         chain,
@@ -254,15 +259,24 @@ export function createExportRenderer(
         Math.max(8, Math.min(300, reach + 2)),
       );
 
+      // The runtime schedules frames over the timeline, which spans the
+      // trimmed region; the clip itself is read at source time.
+      const sourceTime = active.stepper
+        ? toSourceTime(
+            resolveClipWindow(state.values, active.duration || null),
+            timeSeconds,
+          )
+        : timeSeconds;
+
       if (active.stepper) {
-        await primeClipHistory(active, active.stepper, fps, reach, timeSeconds);
+        await primeClipHistory(active, active.stepper, fps, reach, sourceTime);
       }
 
       active.engine.render(chain, registry, {
         duration,
         fps,
-        params: paramsResolver(state, timeSeconds),
-        time: timeSeconds,
+        params: paramsResolver(state, sourceTime),
+        time: sourceTime,
       });
 
       context.drawImage(

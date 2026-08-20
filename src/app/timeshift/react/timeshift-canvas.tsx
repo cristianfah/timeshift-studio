@@ -15,6 +15,8 @@ import {
 import type { ToolcraftMediaAsset, ToolcraftState } from "@/toolcraft/runtime";
 
 import { resolveSlotParams } from "../animation/resolve";
+import { ENGINE_FPS, isClipMuted } from "../engine/budget";
+import { resolveClipWindow, toSourceTime, toTimelineTime } from "../engine/clip-window";
 import { Engine } from "../engine/renderer";
 import { supportsVideoFrameCallback } from "../engine/video";
 import { registry } from "../effects/registry";
@@ -129,6 +131,8 @@ export function TimeshiftCanvas(): React.JSX.Element {
     previewWidth: values[targets.previewWidth],
     stillMotion: values[targets.stillMotion],
     stillMotionAmount: values[targets.stillMotionAmount],
+    trimIn: values[targets.trimIn],
+    trimOut: values[targets.trimOut],
   });
 
   // ---- transport (clips only) -------------------------------------------
@@ -144,7 +148,7 @@ export function TimeshiftCanvas(): React.JSX.Element {
     const video = currentVideo();
 
     if (video) {
-      video.muted = values[targets.muted] !== false;
+      video.muted = isClipMuted(values);
     }
   }, [clipSource, currentVideo, values]);
 
@@ -171,10 +175,16 @@ export function TimeshiftCanvas(): React.JSX.Element {
       return;
     }
 
-    if (Math.abs(video.currentTime - timeline.currentTimeSeconds) > 0.02) {
-      video.currentTime = timeline.currentTimeSeconds;
+    const target = toSourceTime(
+      resolveClipWindow(values, video.duration || null),
+      timeline.currentTimeSeconds,
+    );
+
+    if (Math.abs(video.currentTime - target) > 0.02) {
+      video.currentTime = target;
     }
   }, [
+    values,
     clipSource,
     currentVideo,
     timeline.currentTimeSeconds,
@@ -203,18 +213,33 @@ export function TimeshiftCanvas(): React.JSX.Element {
       } = frameRef.current;
 
       // A clip carries its own clock; a still is driven by the timeline, which
-      // is what makes the modulators animate over a photo.
+      // is what makes the modulators animate over a photo. Effects always read
+      // source time so preview and export resolve the same frame.
       const isVideo = source.kind === "video";
+      const window = isVideo
+        ? resolveClipWindow(stateValues, source.element.duration || null)
+        : null;
       const time = isVideo ? source.element.currentTime : frameRef.current.time;
-      const duration = isVideo
-        ? source.element.duration || 1
+      const duration = window
+        ? window.lengthSeconds
         : frameRef.current.duration || 1;
+
+      // Playback loops inside the trimmed region instead of running to the
+      // end of the source.
+      if (
+        window &&
+        source.kind === "video" &&
+        frameRef.current.isPlaying &&
+        time >= window.inSeconds + window.lengthSeconds
+      ) {
+        source.element.currentTime = window.inSeconds;
+      }
 
       if (isVideo && !supportsVideoFrameCallback() && frameRef.current.isPlaying) {
         engine.pushFrame(source.element);
       }
 
-      const fps = 30;
+      const fps = ENGINE_FPS;
       const paramsFor = (fx: ChainItem): EffectParamValues => {
         const slot = Number(fx.id.replace("slot-", ""));
 
@@ -237,13 +262,13 @@ export function TimeshiftCanvas(): React.JSX.Element {
       // Feed playback position back to the timeline, throttled to real change.
       // A still needs no feedback: the runtime timeline owns that clock.
       if (
-        isVideo &&
+        window &&
         frameRef.current.isPlaying &&
         Math.abs(time - lastReported) > 1 / 60
       ) {
         lastReported = time;
         dispatch({
-          currentTimeSeconds: time,
+          currentTimeSeconds: toTimelineTime(window, time),
           type: "timeline.setCurrentTime",
         });
       }

@@ -31,110 +31,47 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 
 ## Decision Trail
 
-### Iteration 1 — Model appearance and presentation runtime contract
+### Iteration 1 — Migración de Timeshift Studio a Toolcraft
 
-- Request: Preserve authored model materials and textures from folders or ZIP packages, use a Blender-like fallback only when authored appearance is absent, render the result on the canvas, and keep direct orbit synchronized with the orientation gizmo.
-- Task type: Runtime, starter, contract, CLI, and generated-app delivery.
-- User-visible result: GLB/glTF/OBJ/FBX/PLY/STL imports now retain the supported authored appearance subset, folder and ZIP resources remain durable, missing appearance resources surface typed warnings, and materialless geometry uses the canonical fallback. Runtime preview keeps one presentation lease and one camera pose for canvas rendering, direct model drag, gizmo snap, history, reset, and export.
-- Source/reference checked: `/Users/kusnizza/Projects/toolcraft-apps/rain-drops`, the production model adapters, canonical document codecs, binary repository reachability, runtime canvas/model presentation, and generated-app browser evidence.
-- Reference inputs: The user selected preservation for both folder and ZIP imports, fallback only when authored material is absent, and the current Toolcraft application contract as the source of truth.
-- Docs/contracts read: `core/runtime-boundary.md`, `core/media-upload.md`, `core/performance.md`, `renderer-technique.md`, `acceptance-testing.md`, and the runtime decision/component contracts.
-- Contract rules applied: `canvas-surface-preserved`, `interaction-surface-ownership`, `renderer-view-interaction`, `renderer-technique-inventory`, `acceptance-product-observable`, `performance-coverage-levels`, and `persistence-policy-explicit`.
-- View interaction intent: A visible editable model uses `orbit`; runtime canvas drag and `orientationGizmo` consume the same orientation target without mutating canonical source data.
-- Interaction ownership: Canvas owns direct spatial orbit and gizmo snap. The panel owns source package selection, status, warning, repair, and removal actions.
-- Decision: Preserve immutable source packages and canonical appearance data; build a disposable Three.js projection with bounded batching/deduplication only for pixel-equivalent opaque geometry. Retain the renderer prewarm resource across remove/reimport and dispose it with the owning presentation host.
-- Alternatives rejected: Product-owned model loaders, remote texture fallback, storing Three.js objects in state, appearance-driven topology repair, duplicate standard/custom presentation owners, and metadata-only browser evidence.
-- State/output mapping: Durable package refs and canonical document refs live in runtime media state; resolved appearance resources feed a shared presentation lease; evaluated orientation state feeds preview, hit testing, gizmo, history/reset, and export.
+- Request: Migrar la app vanilla de efectos temporales a la arquitectura Toolcraft manteniendo el motor y los diez efectos.
+- Task type: Ensamblado de app, esquema, renderer WebGL2, layers, timeline y export.
+- User-visible result: La app corre sobre `ToolcraftApp` con panel de controles, layers por posición de cadena, timeline con keyframes y export PNG/vídeo; el preview WebGL2 reemplaza el preview genérico de medios.
+- Source/reference checked: La app original congelada en `legacy/vanilla-v1` (shaders, algoritmos y parámetros) y el runtime Toolcraft copiado en `src/toolcraft`.
+- Reference inputs: `legacy/vanilla-v1` como referencia de comportamiento y de shaders. Ninguna referencia visual externa.
+- Docs/contracts read: `docs/toolcraft/workflow.md`, `core/runtime-boundary.md`, `assembly-workflow.md`, `schema-reference.md`, `acceptance-testing.md`.
+- Contract rules applied: `defineToolcraft` + `ToolcraftApp` como única cáscara, `canvasContent` sólo para salida de producto, `exportRenderer` compartido para imagen y vídeo, estado de producto en targets del runtime.
+- View interaction intent: `non-spatial`; la salida es un plano 2D renderizado sobre la fuente, sin escena tridimensional.
+- Interaction ownership: El panel posee la edición de efectos y la carga de la fuente; el canvas sólo muestra el resultado renderizado.
+- Decision: Modelar la cadena como un pool fijo de ocho posiciones con targets propios por posición, tipo y parámetro, para que keyframes, undo, reset y persistencia sean del runtime.
+- Alternatives rejected: Recrear el panel vanilla dentro del canvas; guardar la cadena en estado local de React; crear controles en runtime (el esquema Toolcraft es estático).
+- State/output mapping: `chain.order` + `fx.<slot>.<tipo>.<param>` → `resolveSlotParams` → uniformes del shader → canvas y artefacto exportado.
 - Performance intent: ordinary-product-work
 - Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
-- Risks: The canonical contract intentionally covers static geometry and the documented PBR subset; unsupported skins, morph targets, animation clips, texture transforms, or missing resources remain nonfatal diagnostics when possible. Synthetic browser fixtures prove contract behavior but cannot guarantee every malformed third-party exporter file.
+- Risks: El motor depende de WebGL2 y de los códecs que el navegador pueda decodificar; sin WebGL2 el canvas queda vacío.
 
-### Iteration 2 — Infinity canvas runtime and scene-cropped export
+### Iteration 2 — Timeline extendida y anclada abajo
 
-- Request: Add an `Infinity canvas` toggle to the first Project Settings section; when enabled, remove canvas size controls and artboard limits, use the whole workspace, and export a crop around scene elements.
-- Task type: Runtime, canvas, export, acceptance, starter contract, documentation, CLI, and generated-app delivery.
-- User-visible result: Project Settings now starts with `Infinity canvas`. Enabling it removes aspect ratio, width, and height controls plus the finite artboard boundary; disabling it restores the exact previous finite dimensions. Image export remains full-artboard in finite mode and crops to visible scene bounds in infinite mode.
-- Source/reference checked: Current Toolcraft canvas state, canvas viewport, image/model presentation, panel action boundary, generated product fixture, export pipeline, and the user-approved crop behavior.
-- Reference inputs: The user explicitly selected an unrestricted infinite workspace, preservation of the current finite size, and export by the outer scene-element bounds.
-- Docs/contracts read: `core/setup-export.md`, `core/runtime-boundary.md`, `acceptance-testing.md`, `schema-reference.md`, and the runtime decision/component contracts.
-- Contract rules applied: `canvas-surface-preserved`, `controls-product-coverage`, `output-export-required`, `acceptance-product-observable`, and `infinity-canvas-scene-bounds`.
-- View interaction intent: Infinity mode changes the canvas extent only; existing product `viewInteraction` and model orbit/gizmo ownership remain unchanged.
-- Interaction ownership: Project Settings owns the finite/infinite mode. The canvas owns navigation across the unbounded workspace. Export actions consume canonical scene bounds without adding a second editing surface.
-- Decision: Store the mode in canonical runtime state and history; retain finite dimensions while infinite; give runtime images and models explicit world frames; accept product bounds through the signed composition boundary; union only visible exportable entities; and reject empty, unavailable, or oversized scene exports with typed visible feedback.
-- Alternatives rejected: Encoding Infinity as a sentinel width/height, deriving bounds from DOM pixels, always calling product bounds in finite mode, exporting the current viewport, retaining hidden/editor-only entities, and an implicit global bounds registry.
-- State/output mapping: `canvas.setMode` drives settings visibility and artboard layout. Runtime image/model frames and `sceneBoundsProvider` feed one canonical resolver. Image and model compositors render the resolved scene frame at export scale; video exporters must resolve a bound over their explicit time range.
+- Request: Que la timeline arranque extendida y quede abajo, al estilo After Effects / Jitter.com.
+- Task type: Timeline y presentación de paneles.
+- User-visible result: Al abrir la app la timeline aparece extendida y anclada al borde inferior del viewport.
+- Source/reference checked: After Effects y Jitter.com como referencia de disposición, más el host de paneles del runtime (`snapEdge`).
+- Reference inputs: Referencia verbal del usuario a After Effects / Jitter.com. Ningún archivo de referencia.
+- Docs/contracts read: `core/timeline-animation.md`, `core/setup-export.md`, `core/runtime-boundary.md`.
+- Contract rules applied: El interruptor Timeline es presentación del runtime, no un valor de producto; el producto no reconstruye el panel ni su transporte.
+- View interaction intent: `non-spatial`; la timeline no introduce escena espacial.
+- Interaction ownership: El transporte vive en la timeline del runtime; el panel de controles no lo duplica.
+- Decision: Enviar una sola vez al montar los comandos de presentación (`panels.timeline.extended` y `snapEdge: "bottom"`), sin historial ni valores de producto.
+- Alternatives rejected: Reconstruir la timeline en el producto; guardar el estado extendido como valor de producto; parchear el layout firmado del framework.
+- State/output mapping: `timelineDefaultCommands()` → estado de paneles del runtime → posición y altura del panel de timeline.
 - Performance intent: ordinary-product-work
 - Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
-- Risks: Product-owned visual entities must provide truthful bounds through `sceneBoundsProvider`; the runtime fails closed with `scene-bounds-unavailable` instead of silently cropping them out.
+- Risks: Es estado de presentación: si el runtime cambia los bordes de anclaje, el producto debe seguir ese contrato en vez de forzar posiciones.
 
-### Iteration 3 — Grass controls-panel section navigation parity
-
-- Request: "возьми механику навигации по секциям панели из этого проекта. перенеси полностью дизайн и поведение в стартер. панель появляется когда секции не влезают в высоту одного экрана"
-- Task type: Shared runtime, controls-panel interaction, generated browser evidence, starter documentation, and standalone generation.
-- User-visible result: Generated Toolcraft apps use the Grass section-navigation popup only while the controls body overflows its available viewport. A fitting panel cannot reveal the popup; losing overflow clears pending hover intent, and restoring overflow requires a fresh 300ms dwell.
-- Source/reference checked: `/Users/kusnizza/Projects/toolcraft-apps/grass`, its generated runtime copy, the live app at `http://127.0.0.1:3003/`, canonical runtime/UI sources, and computed popup geometry and typography.
-- Reference inputs: The user selected full Grass design and behavior, with navigation eligibility determined by sections not fitting within one screen height.
-- Docs/contracts read: `component-rules.md`, `workflow.md`, `acceptance-testing.md`, and the runtime panel component contract.
-- Contract rules applied: `panel-host-behavior`, `controls-component-layout-invariants`, `controls-layout-heuristics`, and `acceptance-product-observable`.
-- Interaction ownership: The runtime controls panel owns overflow measurement, hover intent, section scroll-spy, and popup navigation. Product code supplies sections only and cannot render a duplicate navigation surface.
-- Decision: Keep one runtime implementation, retain the complete Grass surface, spacing, type, scrolling, pointer corridor, timing, click, and keyboard behavior, and reset every pending popup timer when overflow disappears.
-- Alternatives rejected: Copying the component into starter product code, retaining navigation state after overflow disappears, showing navigation persistently, and editing the exported Grass folder instead of the source runtime.
-- State/output mapping: `scrollHeight > clientHeight + 1` makes navigation eligible; a 300ms dwell in the inner-left 12px strip mounts the runtime popup; its items map visible non-sticky sections to immediate viewport scroll positions.
-- Performance intent: ordinary-product-work
-- Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
-- Risks: Already-exported applications retain their copied runtime until regenerated; the Grass reference remains unchanged.
-
-### Iteration 4 — Runtime history keyboard shortcuts from focused controls
-
-- Request: Make Undo and Redo work through standard keyboard shortcuts in generated apps.
-- Task type: Shared runtime, generated keyboard interaction, contract, and standalone browser evidence.
-- User-visible result: Cmd/Ctrl+Z, Cmd/Ctrl+Shift+Z, and Ctrl+Y operate Toolcraft history while focus remains on sliders, switches, checkboxes, and other non-text controls; active text editors keep native text undo.
-- Source/reference checked: The runtime ToolcraftRoot shortcut listener, its unit tests, and a built standalone app where the focused Blur slider input reproduced the failure.
-- Contract rules applied: `runtime-shell-required`, `interaction-surface-ownership`, `acceptance-product-observable`, and `workflow-required`.
-- Interaction ownership: ToolcraftRoot owns one document-level history shortcut listener; product apps do not register duplicates.
-- Decision: Classify input targets by native text-editing capability instead of treating every input as a text editor.
-- Alternatives rejected: Always stealing text undo, per-control marker attributes, and app-local shortcut listeners.
-- State/output mapping: Recognized shortcuts dispatch `history.undo`/`history.redo` through the runtime command bus; native text editors return before dispatch.
-- Performance intent: ordinary-product-work
-- Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
-- Risks: Previously exported apps retain their copied runtime until regenerated; newly generated apps receive the fix through the CLI copy path.
-
-### Iteration 5 — Blender-compatible orientation gizmo interaction
-
-- Request: Make the orientation gizmo behave "все как в блендере": click signed points to return to axes and drag the gizmo with Blender-equivalent rotation.
-- Task type: Shared runtime interaction, generated browser evidence, starter contract, and website documentation.
-- User-visible result: The existing 70px Toolcraft gizmo keeps its size, colors, hover treatment, and 16px placement. Users can now drag anywhere inside its circular surface; gizmo and direct model drag share Blender factory Turntable sensitivity and pole recovery; signed-axis clicks use Blender Smooth View timing.
-- Source/reference checked: Blender 4.5.2 LTS factory preferences plus the official navigation gizmo, view rotate, axis view, and smooth-view source. Factory Turntable sensitivity is 0.4 degrees per CSS pixel and Smooth View is 200ms maximum, scaled by quaternion angle.
-- Contract rules applied: `canvas-handle-placement`, `interaction-surface-ownership`, `renderer-view-interaction`, `acceptance-product-observable`, `performance-coverage-levels`, and `workflow-required`.
-- View interaction intent: A visible editable spatial model remains `orbit`; the runtime gizmo and visible-model hit surface consume one canonical `{ position, up }` target.
-- Interaction ownership: An unmodified primary press inside the gizmo circle owns Turntable drag; a signed endpoint also owns click-to-axis; blank click is inert; outside-circle and model-miss presses remain canvas pan.
-- Decision: Map Blender Z-up behavior to Toolcraft Y-up, use fixed world-up yaw plus screen-horizontal pitch with Blender's pole horizon blend, keep a 3px click/drag threshold, and use cubic smoothstep quaternion slerp with `200ms * angle / pi` duration.
-- Alternatives rejected: Keeping endpoint-only sphere projection, changing only gizmo math while direct model drag remains viewport-scaled, and adopting a Three.js helper that owns a separate camera/controller.
-- Licensing: This is an independent behavioral and mathematical reimplementation from documented behavior and observed source structure; no Blender GPL source code is copied.
-- State/output mapping: Every drag or snap writes the canonical runtime pose under one history group and target-scoped interaction lease. Preview, hit testing, gizmo projection, reset/undo/redo, persistence, and export continue to consume that pose; stale gestures cannot write after a newer owner.
-- Performance intent: ordinary-product-work
-- Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
-- Risks: Already-exported applications retain their copied runtime until regenerated. Browser proof relies on the runtime gizmo's canonical pose/target attributes and intentionally fails closed if the real handle is absent or ambiguous.
-
-### Iteration 6 — Executable product-control applicability
-
-- Request: Fix starter contracts so generated products show only settings that apply to the selected type and cannot pass delivery with a visible control that the renderer ignores.
-- Task type: Shared runtime schema, controls-panel visibility, starter acceptance, protected browser evidence, generated fixtures, CLI, and documentation.
-- User-visible result: Every generated product control explicitly declares `always` or `conditional` applicability. Non-matching controls disappear without losing their values, while every visible finite sibling branch must prove the control's real accepted product outcome.
-- Source/reference checked: Badge behavior was used only as failure evidence; implementation scope remained the Toolcraft runtime and starter contracts. The legacy `visibleWhen` runtime path, control-section inventory, acceptance requirement derivation, reporter, and generated image/video/material fixtures were inspected.
-- Contract rules applied: `controls-product-coverage`, `controls-section-inventory-required`, `controls-component-layout-invariants`, `acceptance-product-observable`, and `workflow-required`.
-- Interaction ownership: The runtime owns applicability normalization and panel presence. Product schemas own explicit applicability claims. Existing product acceptance owns actions and outcomes; the applicability layer only derives the branch cases in which those outcomes must be reproved.
-- Decision: Normalize explicit applicability, legacy `visibleWhen`, and omitted low-level input into one resolved model with origin metadata; reject legacy/implicit origins for product controls; combine conditional predicates with AND; derive pairwise cases from semantic section peers; preserve the authored `Background` inventory ownership after runtime relocates its product controls into `Setup`; attach case-scoped evidence only after exact presence/absence and real outcome assertions pass.
-- Alternatives rejected: Extending optional `visibleWhen`, selector-owned target lists, renderer dependency inference, acceptance prose heuristics, Cartesian branch enumeration, and Badge-specific logic.
-- State/output mapping: Applicability reads canonical runtime target values and changes only panel presence. Hidden values remain in runtime state, persistence, transfer, and history. Matching cases reuse the control's existing preview, rendered-pixel, artifact, command, or semantic proof.
-- Performance intent: ordinary-product-work
-- Verification: One bare `npm run verify:delivery` remains the generated-app delivery authority; this runtime/template contract delivery also runs the monorepo checks required by the repository entry contract.
-- Risks: Pairwise proof depends on truthful Control Section Inventory grouping; unsupported selector domains fail acceptance instead of silently skipping cases. Legacy low-level consumers remain readable but cannot satisfy generated product acceptance.
-
-### Iteration 8 — Imagen fija como fuente, efectos sobre la foto y export de imagen
+### Iteration 3 — Imagen fija como fuente, efectos sobre la foto y export de imagen
 
 - Request: "me gustaria que se puedan subir imagenes a la app y aplicarles efecto a la imagen tambien, exportar imagenes, tambien sea una opcion".
 - Task type: Media upload, esquema y controles, renderer/canvas, export de imagen.
+- Reference inputs: `legacy/vanilla-v1` (motor temporal original) y una foto de prueba generada para el navegador. Ninguna referencia visual aportada por el usuario.
 - User-visible result: El cargador «Fuente» acepta video **o** imagen. Al soltar una foto, el canvas la muestra a resolución nativa, los looks y la cadena de 8 slots se aplican sobre ella, la reproducción del timeline anima los moduladores sobre la foto quieta, y «Exportar PNG» entrega la imagen procesada en PNG/JPG a 2K/4K/8K.
 - Source/reference checked: `legacy/vanilla-v1` (motor temporal original), el registro de efectos actual (`effects/registry.ts`) y el comportamiento observado en navegador: con un anillo de fotogramas idénticos, `Datamosh` devolvía un render bit a bit igual a la foto.
 - Docs/contracts read: `docs/toolcraft/workflow.md`, `core/media-upload.md`, `core/setup-export.md`, `core/runtime-boundary.md`, `core/control-selection.md`, `core/layout.md`, `core/performance.md`, `schema-reference.md`.
@@ -147,6 +84,24 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 - Performance intent: ordinary-product-work
 - Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
 - Risks: Con «Sin movimiento» o intensidad 0 los efectos temporales no tienen material y la foto sale igual — está documentado en la ayuda del control. Los controles de «Reproducción del clip» (silenciar, entrada, salida) siguen visibles con una imagen cargada aunque no apliquen; ocultarlos exigiría espejar el tipo de medio en `values`. Un export 8K sigue reservando el anillo a esa resolución, igual que en video.
+
+### Iteration 4 — Cierre de contratos: acceptance, applicability y salud de código
+
+- Request: "ok ahora arreglemos los errores" — los 5.033 errores de cobertura de acceptance y los tests de contrato en rojo.
+- Task type: Acceptance, esquema y controles, salud de código, más los arreglos de producto que los contratos destaparon.
+- User-visible result: Dos controles que no hacían nada ahora hacen lo que prometen —«Entrada»/«Salida» recortan de verdad la región del clip (la timeline pasa a durar la región y el export entrega ese tramo) y el interruptor «Audio original», que el runtime no puede cumplir porque su codificador de video no lleva pista de audio, desapareció. La intensidad del movimiento inventado admite keyframes en lugar de esconder el diamante.
+- Source/reference checked: Los validadores del runtime (`src/app/acceptance/*`), el reporter de evidencia de Vitest y el chequeo de salud de código; más `src/toolcraft/runtime/export` para confirmar que el export de video no tiene audio.
+- Reference inputs: Ninguna referencia externa; la entrada fue la salida de los propios validadores.
+- Docs/contracts read: `acceptance-testing.md`, `core/control-selection.md`, `core/layout.md`, `core/performance.md`, `performance.md`, `core/setup-export.md`, `schema-reference.md`.
+- Contract rules applied: applicability explícita en cada control; una fila de acceptance por control visible con su test automatizado real; inventario de secciones con entidad, targets y razón; cohesión de entidad con etapas de trabajo para los efectos partidos; intención de export tipada; `viewInteraction` sin gizmo para una salida 2D; presupuesto de líneas por módulo.
+- View interaction intent: `non-spatial`, con razón registrada: la salida es un plano 2D renderizado sobre la fuente. Antes decía `orbit` sin ningún gizmo declarado, que es justo lo que el contrato rechaza.
+- Interaction ownership: Una sola entrada tipada, el explorador de efectos (`chain.browser`), que es la única operación que podría vivir en el canvas y vive en el panel; su fila de acceptance la referencia por `interactionId`.
+- Decision: Generar las filas de acceptance y el inventario de secciones desde el mismo recorrido del registro que genera el esquema, y registrar los 2.480 tests automatizados desde esa misma lista, de modo que un control nuevo no pueda declarar cobertura sin ejecutar una aserción real. Cada test ejercita el resolutor que usan el preview y el export.
+- Alternatives rejected: Escribir las filas a mano (se desincronizan al primer efecto nuevo); declarar `automated: false` para saltarse la prueba; dejar los sliders de recorte y el interruptor de audio como controles muertos; ocultar el diamante de keyframes con `keyframeable: false`.
+- State/output mapping: `clip.trimIn`/`clip.trimOut` → `resolveClipWindow` → duración de la timeline, tiempo de fuente del preview y tiempo de fuente del export. Las filas de acceptance y el inventario derivan de `buildChainAcceptance()` y `buildSectionInventory(appSchema)`.
+- Performance intent: ordinary-product-work
+- Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
+- Risks: Queda abierto el contrato de performance. El motor es un renderer WebGL2 propio, así que debe declarar envelope, pipeline ejecutable, un escenario por path canónico y sus adaptadores; pero el contrato de pipeline prohíbe que una interacción de alta frecuencia invalide un pase `pixel-transform`, que es exactamente lo que hace la reproducción cuadro a cuadro de este producto. Esa contradicción necesita una decisión de producto antes de declarar nada. Además, el inventario de impacto por módulo crece a cientos de kilobytes con 2.480 filas: si se modela el banco de LFO como una colección (el patrón que el propio contrato recomienda para entidades repetibles) bajarían a ~640.
 
 ## Decisions
 
@@ -211,6 +166,8 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 
 - **Timeline layout**: El runtime posiciona la timeline arriba; Timeshift la necesita abajo (estilo After Effects / Jitter.com). Pendiente de implementar layout override.
 - **Fuente de imagen**: los controles de «Reproducción del clip» siguen visibles con una foto cargada; no aplican hasta que la fuente es un video.
+- **Contrato de performance**: `app-performance.ts` sigue declarando el starter neutro. El producto tiene renderer propio y debe declarar el plan completo; ver Iteration 4 para la contradicción pendiente.
+- **Export de video sin audio**: el codificador del runtime no muxea audio, así que el export de video sale mudo.
 - **Bug 1 (video no carga)**: El engine WebGL2 no renderiza frames de mp4 (H.264). Funciona con .webm. El binding del asset funciona correctamente. Pendiente verificar con video real del usuario.
 - **Push a main**: Se resolvió el auth de GitHub (device flow) para push. Ahora funciona con gh auth keyring.
 

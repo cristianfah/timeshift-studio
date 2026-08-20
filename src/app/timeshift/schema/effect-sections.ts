@@ -27,6 +27,13 @@ import { LFO_SHAPES } from "../animation/lfo";
 /** Controls per section, from the Toolcraft layout contract. */
 const MAX_SECTION_CONTROLS = 7;
 
+/**
+ * Every control in a slot section applies whenever that section is on screen:
+ * the chain position and its effect type are chosen in Layers and the effect
+ * browser, and the section's own condition already hides the other branches.
+ */
+const ALWAYS = { mode: "always" } as const;
+
 function controlKey(key: string): string {
   return key;
 }
@@ -45,12 +52,13 @@ function buildParamControl(
       def.options.reduce((n, [, label]) => n + label.length, 0) <= 24;
 
     return {
+      applicability: ALWAYS,
       defaultValue: def.def,
       label: def.label,
       options: def.options.map(([value, label]) => ({ label, value })),
       performanceReason:
-        "Cambia la rama de producto del efecto y por tanto el trabajo del shader.",
-      performanceRole: "workload",
+        "Cambia la rama del shader del efecto sin cambiar cuántos píxeles ni cuántos pases se procesan.",
+      performanceRole: "responsiveness",
       target,
       type: compact ? "segmented" : "select",
       ...(def.help ? { description: def.help } : {}),
@@ -58,6 +66,7 @@ function buildParamControl(
   }
 
   return {
+    applicability: ALWAYS,
     defaultValue: def.def,
     label: def.label,
     max: def.max,
@@ -168,15 +177,17 @@ function buildModulatorSections(
     return {
       controls: {
         enabled: {
+          applicability: ALWAYS,
           defaultValue: false,
           label: "Activo",
           performanceReason:
-            "Al activarlo el parámetro se reevalúa cada frame en lugar de quedarse fijo.",
-          performanceRole: "workload",
+            "Añade una evaluación de LFO por frame; el coste del pase no cambia.",
+          performanceRole: "responsiveness",
           target: modulatorTarget(slot, type, i, "enabled"),
           type: "switch",
         },
         parameter: {
+          applicability: ALWAYS,
           defaultValue: first?.key ?? "",
           description:
             "Parámetro que oscila. El movimiento se suma a su valor y a sus keyframes.",
@@ -185,42 +196,61 @@ function buildModulatorSections(
             label: def.label,
             value: def.key,
           })),
+          performanceReason:
+            "Reasigna a qué parámetro se suma el LFO; el trabajo por frame es el mismo.",
+          performanceRole: "responsiveness",
           target: modulatorTarget(slot, type, i, "parameter"),
           type: "select",
         },
         phase: {
+          applicability: ALWAYS,
           defaultValue: 0,
           description: "Desplaza el inicio del ciclo.",
           label: "Fase",
           max: 1,
           min: 0,
+          performanceReason:
+            "Se arrastra en vivo mientras la modulación corre sobre la fuente.",
+          performanceRole: "responsiveness",
           step: 0.01,
           target: modulatorTarget(slot, type, i, "phase"),
           type: "slider",
         },
         rate: {
+          applicability: ALWAYS,
           defaultValue: 0.5,
           label: "Velocidad",
           max: 8,
           min: 0.05,
+          performanceReason:
+            "Se arrastra en vivo mientras la modulación corre sobre la fuente.",
+          performanceRole: "responsiveness",
           step: 0.05,
           target: modulatorTarget(slot, type, i, "rate"),
           type: "slider",
           unit: "Hz",
         },
         shape: {
+          applicability: ALWAYS,
           defaultValue: "sine",
           label: "Forma",
           options: LFO_SHAPES.map(([value, label]) => ({ label, value })),
+          performanceReason:
+            "Cambia la función del LFO, no el trabajo del pase.",
+          performanceRole: "responsiveness",
           target: modulatorTarget(slot, type, i, "shape"),
           type: "select",
         },
         swing: {
+          applicability: ALWAYS,
           defaultValue: 0,
           description: "Cuánto se aparta el parámetro de su valor, en sus propias unidades.",
           label: "Amplitud",
           max: 100,
           min: 0,
+          performanceReason:
+            "Se arrastra en vivo mientras la modulación corre sobre la fuente.",
+          performanceRole: "responsiveness",
           step: 0.5,
           target: modulatorTarget(slot, type, i, "amp"),
           type: "slider",
