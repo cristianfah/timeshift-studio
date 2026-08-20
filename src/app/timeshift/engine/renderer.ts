@@ -237,6 +237,38 @@ export class Engine implements EffectHost {
   }
 
   /**
+   * Fill the whole ring from a still. `paint` draws one layer at a time and
+   * receives its age (0 = current frame, 1 = oldest), so the caller decides
+   * what the past looks like; the engine only owns the ring. Runs once per
+   * loaded still instead of per frame, because none of it changes over time.
+   */
+  fillHistory(paint: (context: CanvasRenderingContext2D, age: number) => void): void {
+    const ring = this.ring;
+
+    if (!ring) {
+      return;
+    }
+
+    ring.reset();
+
+    // Oldest first: the last layer pushed becomes the head, which must be the
+    // current frame.
+    for (let layer = ring.depth - 1; layer >= 0; layer -= 1) {
+      const age = ring.depth > 1 ? layer / (ring.depth - 1) : 0;
+
+      this.scalerCtx.clearRect(0, 0, this.scaler.width, this.scaler.height);
+      paint(this.scalerCtx, age);
+      ring.push(this.scaler);
+    }
+
+    this.pushStamp += 1;
+
+    for (const fn of this.pushListeners) {
+      fn(this.scaler);
+    }
+  }
+
+  /**
    * Observe every frame this engine ingests (already downscaled). Used by the
    * effect browser to keep its own small ring buffer in sync without decoding
    * the video twice.

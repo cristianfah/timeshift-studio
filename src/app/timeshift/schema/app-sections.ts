@@ -2,6 +2,11 @@
 
 import type { ToolcraftControlSectionSchema } from "@/toolcraft/runtime";
 
+import {
+  DEFAULT_STILL_MOTION,
+  DEFAULT_STILL_MOTION_AMOUNT,
+  STILL_MOTIONS,
+} from "../engine/still-history";
 import { LOOKS } from "../effects/looks";
 import { targets } from "../targets";
 
@@ -20,21 +25,60 @@ export const bufferSecondsOptions = [
 
 export function buildAppSections(): ToolcraftControlSectionSchema[] {
   return [
-    // --- Clip: fuente del video ---
+    // --- Fuente: el video o la imagen sobre la que corre la cadena ---
     {
       controls: {
         source: {
-          accept: "video/*",
+          // Un solo cargador para ambos tipos: la cadena de efectos es la
+          // misma, solo cambia de dónde salen los fotogramas.
+          accept: "video/*,image/*",
           assetKind: "file",
           description:
-            "El clip se decodifica en tu equipo. No se sube a ningún servidor.",
-          label: "Clip",
+            "Video o imagen. Se decodifica en tu equipo; no se sube a ningún servidor.",
+          label: "Fuente",
           target: targets.source,
           type: "fileDrop",
         },
       },
       id: "clip-source",
-      title: "Clip",
+      title: "Fuente",
+    },
+    // --- Imagen fija: el pasado que la cadena necesita para tener efecto ---
+    {
+      controls: {
+        motion: {
+          applicability: { mode: "always" as const },
+          defaultValue: DEFAULT_STILL_MOTION,
+          description:
+            "Una foto no tiene pasado y los efectos leen el pasado. El fotograma actual sigue siendo tu imagen intacta; los fotogramas anteriores se alejan con este movimiento.",
+          label: "Movimiento inventado",
+          options: [...STILL_MOTIONS],
+          performanceReason:
+            "Repinta el historial una sola vez al cambiar; no añade trabajo por frame.",
+          performanceRole: "responsiveness",
+          target: targets.stillMotion,
+          type: "select",
+        },
+        amount: {
+          applicability: { mode: "always" as const },
+          defaultValue: DEFAULT_STILL_MOTION_AMOUNT,
+          description:
+            "Cuánto se alejan los fotogramas inventados. En 0 los efectos temporales no tienen nada que mostrar.",
+          // Un keyframe aquí obligaría a repintar el anillo en cada frame.
+          keyframeable: false,
+          label: "Intensidad",
+          max: 1,
+          min: 0,
+          performanceReason:
+            "Repinta el historial una sola vez al cambiar; no añade trabajo por frame.",
+          performanceRole: "responsiveness",
+          step: 0.01,
+          target: targets.stillMotionAmount,
+          type: "slider",
+        },
+      },
+      id: "still-motion",
+      title: "Imagen fija",
     },
     // --- Looks: selector de efectos tipo vanilla (grid de 9 looks) ---
     {
@@ -124,7 +168,8 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
         },
         trimIn: {
           defaultValue: 0,
-          description: "Inicio de la región que se reproduce en bucle y se exporta.",
+          description:
+            "Inicio de la región que se reproduce en bucle y se exporta. Solo aplica a clips de video.",
           label: "Entrada",
           max: 1,
           min: 0,
@@ -144,7 +189,7 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
         },
       },
       id: "clip-playback",
-      title: "Reproducción",
+      title: "Reproducción del clip",
     },
   ];
 }

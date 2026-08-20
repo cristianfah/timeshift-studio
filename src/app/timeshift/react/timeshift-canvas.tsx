@@ -1,4 +1,4 @@
-// Product output: the WebGL2 chain rendered over the loaded clip.
+// Product output: the WebGL2 chain rendered over the loaded source.
 //
 // The render loop lives in requestAnimationFrame outside React — the engine
 // draws every frame, so a React render per frame would be pure overhead. State
@@ -16,14 +16,13 @@ import type { ToolcraftMediaAsset, ToolcraftState } from "@/toolcraft/runtime";
 
 import { resolveSlotParams } from "../animation/resolve";
 import { Engine } from "../engine/renderer";
-import {
-  asFrameCallbackHost,
-  supportsVideoFrameCallback,
-} from "../engine/video";
+import { supportsVideoFrameCallback } from "../engine/video";
 import { registry } from "../effects/registry";
-import { clipUrlRef } from "./clip-url";
+import { clipSourceRef, readClipSourceKind } from "./clip-source";
+import type { ClipSource } from "./clip-source";
 import { targets } from "../targets";
 import type { ChainItem, EffectParamValues, RingBufferInfo } from "../types";
+import { previewSourceSize, usePreviewSource } from "./use-preview-source";
 import { useChain, useChainItems, useSelectedChainEntry, useSelectionSync } from "./use-chain";
 
 const selectMediaAssets = (state: ToolcraftState): readonly ToolcraftMediaAsset[] =>
@@ -31,12 +30,6 @@ const selectMediaAssets = (state: ToolcraftState): readonly ToolcraftMediaAsset[
 const selectValues = (state: ToolcraftState): Record<string, unknown> =>
   state.values;
 const selectTimeline = (state: ToolcraftState) => state.timeline;
-
-function asNumber(value: unknown, fallback: number): number {
-  const n = typeof value === "string" ? Number(value) : value;
-
-  return typeof n === "number" && Number.isFinite(n) ? n : fallback;
-}
 
 export type TimeshiftEngineStatus = {
   buffer: RingBufferInfo | null;
@@ -50,7 +43,6 @@ export const TimeshiftEngineContext =
 export function TimeshiftCanvas(): React.JSX.Element {
   const canvasRef = React.useRef<HTMLCanvasElement | null>(null);
   const engineRef = React.useRef<Engine | null>(null);
-  const videoRef = React.useRef<HTMLVideoElement | null>(null);
   const sideDataRef = React.useRef(new Map<string, ChainItem>());
 
   const dispatch = useToolcraftDispatch();
@@ -70,28 +62,39 @@ export function TimeshiftCanvas(): React.JSX.Element {
   // Everything the rAF loop reads, refreshed on every React render.
   const frameRef = React.useRef({
     chainItems,
+    duration: timeline.durationSeconds,
     evaluated,
     isPlaying: timeline.isPlaying,
+    time: timeline.currentTimeSeconds,
     values,
   });
 
   frameRef.current = {
     chainItems,
+    duration: timeline.durationSeconds,
     evaluated,
     isPlaying: timeline.isPlaying,
+    time: timeline.currentTimeSeconds,
     values,
   };
 
-  const clipUrl = React.useMemo(() => {
+  // Read inside effects and the loop so neither has to depend on `values`.
+  const getValues = React.useCallback(
+    (): Record<string, unknown> => frameRef.current.values,
+    [],
+  );
+
+  const clipSource = React.useMemo((): ClipSource | null => {
     const asset = mediaAssets.find(
       (candidate) => candidate.sourceTarget === targets.source,
     );
+    const url = asset ? (mediaUrls.get(asset.id) ?? null) : null;
 
-    return asset ? (mediaUrls.get(asset.id) ?? null) : null;
+    return asset && url ? { kind: readClipSourceKind(asset), url } : null;
   }, [mediaAssets, mediaUrls]);
 
-  // The export renderer runs outside React and needs the same clip.
-  clipUrlRef.current = clipUrl;
+  // The export renderer runs outside React and needs the same source.
+  clipSourceRef.current = clipSource;
 
   // ---- engine lifecycle -------------------------------------------------
   React.useEffect(() => {
@@ -116,118 +119,37 @@ export function TimeshiftCanvas(): React.JSX.Element {
     };
   }, []);
 
-  // ---- clip loading -----------------------------------------------------
-  React.useEffect(() => {
-    if (!clipUrl) {
-      videoRef.current = null;
-      return undefined;
-    }
+  // ---- source loading ---------------------------------------------------
+  const sourceRef = usePreviewSource({
+    bufferSeconds: values[targets.bufferSeconds],
+    clipSource,
+    dispatch,
+    engineRef,
+    getValues,
+    previewWidth: values[targets.previewWidth],
+    stillMotion: values[targets.stillMotion],
+    stillMotionAmount: values[targets.stillMotionAmount],
+  });
 
-    const video = document.createElement("video");
+  // ---- transport (clips only) -------------------------------------------
+  // The element is created by the loading effect above, in this same commit,
+  // so transport always reads it from the ref rather than from render output.
+  const currentVideo = React.useCallback((): HTMLVideoElement | null => {
+    const source = sourceRef.current;
 
-    video.preload = "auto";
-    video.muted = values[targets.muted] !== false;
-    video.playsInline = true;
-    video.src = clipUrl;
-    videoRef.current = video;
-
-    const handleMetadata = (): void => {
-      const engine = engineRef.current;
-
-      if (!engine || !video.videoWidth) {
-        return;
-      }
-
-      configureEngine(engine, video, frameRef.current.values);
-      dispatch({
-        durationSeconds: Math.max(0.1, video.duration),
-        type: "timeline.setDuration",
-      });
-      // `intrinsic-media` sizing expects the imported media to own the canvas
-      // size, but the runtime only measures images. A clip has to report its
-      // own dimensions or the output frame stays at the default size.
-      dispatch({
-        size: {
-          height: video.videoHeight,
-          unit: "px",
-          width: video.videoWidth,
-        },
-        type: "canvas.setSize",
-      });
-    };
-
-    video.addEventListener("loadedmetadata", handleMetadata, { once: true });
-
-    // A paused clip never fires rVFC, so the first frame has to be pushed by
-    // hand — otherwise the ring stays empty and the canvas clears to black.
-    const handleLoadedData = (): void => {
-      handleMetadata();
-      engineRef.current?.pushFrame(video);
-    };
-
-    video.addEventListener("loadeddata", handleLoadedData);
-
-    const host = asFrameCallbackHost(video);
-
-    if (host) {
-      const pump = (): void => {
-        if (videoRef.current !== video) {
-          return;
-        }
-
-        engineRef.current?.pushFrame(video);
-        host.requestVideoFrameCallback(pump);
-      };
-
-      host.requestVideoFrameCallback(pump);
-    }
-
-    // A seek also delivers a frame; without rVFC this is the only signal.
-    const handleSeeked = (): void => {
-      engineRef.current?.pushFrame(video);
-    };
-
-    video.addEventListener("seeked", handleSeeked);
-
-    return () => {
-      video.removeEventListener("loadeddata", handleLoadedData);
-      video.removeEventListener("seeked", handleSeeked);
-      video.pause();
-      video.removeAttribute("src");
-      video.load();
-
-      if (videoRef.current === video) {
-        videoRef.current = null;
-      }
-    };
-    // `values` is intentionally read through the ref inside the effect.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clipUrl, dispatch]);
-
-  // ---- engine reconfiguration on budget changes -------------------------
-  const previewWidth = values[targets.previewWidth];
-  const bufferSeconds = values[targets.bufferSeconds];
+    return source?.kind === "video" ? source.element : null;
+  }, [sourceRef]);
 
   React.useEffect(() => {
-    const engine = engineRef.current;
-    const video = videoRef.current;
-
-    if (engine && video?.videoWidth) {
-      configureEngine(engine, video, frameRef.current.values);
-    }
-  }, [bufferSeconds, previewWidth]);
-
-  React.useEffect(() => {
-    const video = videoRef.current;
+    const video = currentVideo();
 
     if (video) {
       video.muted = values[targets.muted] !== false;
     }
-  }, [values]);
+  }, [clipSource, currentVideo, values]);
 
-  // ---- transport --------------------------------------------------------
   React.useEffect(() => {
-    const video = videoRef.current;
+    const video = currentVideo();
 
     if (!video) {
       return;
@@ -240,10 +162,10 @@ export function TimeshiftCanvas(): React.JSX.Element {
     } else {
       video.pause();
     }
-  }, [timeline.isPlaying]);
+  }, [clipSource, currentVideo, timeline.isPlaying]);
 
   React.useEffect(() => {
-    const video = videoRef.current;
+    const video = currentVideo();
 
     if (!video || timeline.isPlaying) {
       return;
@@ -252,7 +174,12 @@ export function TimeshiftCanvas(): React.JSX.Element {
     if (Math.abs(video.currentTime - timeline.currentTimeSeconds) > 0.02) {
       video.currentTime = timeline.currentTimeSeconds;
     }
-  }, [timeline.currentTimeSeconds, timeline.isPlaying]);
+  }, [
+    clipSource,
+    currentVideo,
+    timeline.currentTimeSeconds,
+    timeline.isPlaying,
+  ]);
 
   // ---- render loop ------------------------------------------------------
   React.useEffect(() => {
@@ -263,18 +190,28 @@ export function TimeshiftCanvas(): React.JSX.Element {
       raf = requestAnimationFrame(tick);
 
       const engine = engineRef.current;
-      const video = videoRef.current;
+      const source = sourceRef.current;
 
-      if (!engine || !video || !video.videoWidth) {
+      if (!engine || !source || !previewSourceSize(source)) {
         return;
       }
 
-      const time = video.currentTime;
-      const { chainItems: items, evaluated: evaluatedValues, values: stateValues } =
-        frameRef.current;
+      const {
+        chainItems: items,
+        evaluated: evaluatedValues,
+        values: stateValues,
+      } = frameRef.current;
 
-      if (!supportsVideoFrameCallback() && frameRef.current.isPlaying) {
-        engine.pushFrame(video);
+      // A clip carries its own clock; a still is driven by the timeline, which
+      // is what makes the modulators animate over a photo.
+      const isVideo = source.kind === "video";
+      const time = isVideo ? source.element.currentTime : frameRef.current.time;
+      const duration = isVideo
+        ? source.element.duration || 1
+        : frameRef.current.duration || 1;
+
+      if (isVideo && !supportsVideoFrameCallback() && frameRef.current.isPlaying) {
+        engine.pushFrame(source.element);
       }
 
       const fps = 30;
@@ -291,14 +228,19 @@ export function TimeshiftCanvas(): React.JSX.Element {
       };
 
       engine.render(items, registry, {
-        duration: video.duration || 1,
+        duration,
         fps,
         params: paramsFor,
         time,
       });
 
       // Feed playback position back to the timeline, throttled to real change.
-      if (frameRef.current.isPlaying && Math.abs(time - lastReported) > 1 / 60) {
+      // A still needs no feedback: the runtime timeline owns that clock.
+      if (
+        isVideo &&
+        frameRef.current.isPlaying &&
+        Math.abs(time - lastReported) > 1 / 60
+      ) {
         lastReported = time;
         dispatch({
           currentTimeSeconds: time,
@@ -310,7 +252,7 @@ export function TimeshiftCanvas(): React.JSX.Element {
     raf = requestAnimationFrame(tick);
 
     return () => cancelAnimationFrame(raf);
-  }, [dispatch]);
+  }, [dispatch, sourceRef]);
 
   return (
     <canvas
@@ -319,21 +261,4 @@ export function TimeshiftCanvas(): React.JSX.Element {
       ref={canvasRef}
     />
   );
-}
-
-function configureEngine(
-  engine: Engine,
-  video: HTMLVideoElement,
-  values: Record<string, unknown>,
-): RingBufferInfo {
-  const fps = 30;
-  const targetWidth = asNumber(values[targets.previewWidth], 854);
-  const seconds = asNumber(values[targets.bufferSeconds], 3);
-
-  return engine.configure({
-    depth: Math.min(300, Math.max(8, Math.round(seconds * fps))),
-    srcHeight: video.videoHeight,
-    srcWidth: video.videoWidth,
-    targetWidth,
-  });
 }

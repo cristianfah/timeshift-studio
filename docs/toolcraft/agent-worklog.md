@@ -6,7 +6,7 @@ This file records product decisions and the evidence behind them. Keep it short,
 
 Mode: product
 
-Timeshift Studio es un editor de video con cadena de efectos, por ahora con timeline y layout heredados del starter. La timeline se posiciona abajo (estilo After Effects / Jitter.com) por decisión de producto registrada en Iteration 7.
+Timeshift Studio es un editor de video **y de imagen fija** con cadena de efectos, por ahora con timeline y layout heredados del starter. La timeline se posiciona abajo (estilo After Effects / Jitter.com) por decisión de producto registrada en Iteration 7. Desde Iteration 8 la misma cadena corre sobre una foto subida y se entrega como PNG/JPG.
 
 ## Automatic Delivery Lifecycle
 
@@ -131,6 +131,23 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 - Verification: One bare `npm run verify:delivery` remains the generated-app delivery authority; this runtime/template contract delivery also runs the monorepo checks required by the repository entry contract.
 - Risks: Pairwise proof depends on truthful Control Section Inventory grouping; unsupported selector domains fail acceptance instead of silently skipping cases. Legacy low-level consumers remain readable but cannot satisfy generated product acceptance.
 
+### Iteration 8 — Imagen fija como fuente, efectos sobre la foto y export de imagen
+
+- Request: "me gustaria que se puedan subir imagenes a la app y aplicarles efecto a la imagen tambien, exportar imagenes, tambien sea una opcion".
+- Task type: Media upload, esquema y controles, renderer/canvas, export de imagen.
+- User-visible result: El cargador «Fuente» acepta video **o** imagen. Al soltar una foto, el canvas la muestra a resolución nativa, los looks y la cadena de 8 slots se aplican sobre ella, la reproducción del timeline anima los moduladores sobre la foto quieta, y «Exportar PNG» entrega la imagen procesada en PNG/JPG a 2K/4K/8K.
+- Source/reference checked: `legacy/vanilla-v1` (motor temporal original), el registro de efectos actual (`effects/registry.ts`) y el comportamiento observado en navegador: con un anillo de fotogramas idénticos, `Datamosh` devolvía un render bit a bit igual a la foto.
+- Docs/contracts read: `docs/toolcraft/workflow.md`, `core/media-upload.md`, `core/setup-export.md`, `core/runtime-boundary.md`, `core/control-selection.md`, `core/layout.md`, `core/performance.md`, `schema-reference.md`.
+- Contract rules applied: `fileDrop` como único dueño de la subida (`assetKind: "file"` + `accept` que estrecha a video/imagen, porque el control admite los dos tipos); Layers sigue siendo el dueño de la gestión del medio; el runtime sigue siendo el dueño del encoding/descarga (el producto solo pinta `exportRenderer.renderFrame`); `Image Export` se mantiene inmediatamente antes de `Video Export`; canvas neutro antes de que exista contenido real.
+- View interaction intent: sin cambios — `orbit` sobre el preview 2D; una foto no agrega escena espacial.
+- Interaction ownership: sin superficies nuevas. La subida vive en el panel (`fileDrop`), el orden y la visibilidad en Layers, el export en las acciones sticky.
+- Decision: (1) Un solo control de fuente para clip e imagen; el tipo se deduce del `mimeType` del asset (extensión como respaldo). (2) Una foto no tiene pasado y **todos** los efectos de esta app leen el pasado, así que el producto le inventa uno: el anillo se rellena una sola vez y el fotograma más viejo se aleja del actual según «Movimiento inventado» (Barrido por defecto) e «Intensidad» (0.5). El fotograma actual siempre es la imagen intacta, así que con delay 0 el resultado es la foto original píxel a píxel. (3) El tiempo de la imagen lo manda el timeline del runtime (un clip manda el suyo), de modo que LFOs y keyframes animan sobre la foto. (4) La sesión de export se identifica por fuente + tamaño + ajustes de pasado inventado, para que cambiar 2K↔8K reasigne el anillo en vez de reescalar capas viejas.
+- Alternatives rejected: rellenar el anillo con copias idénticas (deja la cadena en no-op: comprobado en navegador); mover la imagen también en el fotograma actual (alteraría la foto exportada); un segundo cargador solo para imágenes (duplica la fuente y rompe «una operación, una superficie»); un valor de producto que espeje el tipo de medio para ocultar los controles de clip (duplicaría el estado de medios del runtime).
+- State/output mapping: `clip.source` → asset de medios → `clipSourceRef` → preview (`use-preview-source.ts`) y export (`export-renderer.ts`). `still.motion` / `still.motionAmount` → `still-history.ts` → capas del ring buffer → cada shader de la cadena → canvas y artefacto exportado. `export.image.format` / `export.image.resolution` los sigue consumiendo el runtime.
+- Performance intent: ordinary-product-work
+- Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
+- Risks: Con «Sin movimiento» o intensidad 0 los efectos temporales no tienen material y la foto sale igual — está documentado en la ayuda del control. Los controles de «Reproducción del clip» (silenciar, entrada, salida) siguen visibles con una imagen cargada aunque no apliquen; ocultarlos exigiría espejar el tipo de medio en `values`. Un export 8K sigue reservando el anillo a esa resolución, igual que en video.
+
 ## Decisions
 
 ### Renderer
@@ -171,9 +188,9 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 
 ### Export
 
-- Decision: Export PNG y Video vía runtime exportRenderer compartido.
-- Reason: El clip renderizado se exporta a imagen o video.
-- Evidence: createExportRenderer en app-composition.tsx, onPanelAction exportPng/exportVideo.
+- Decision: Export PNG y Video vía runtime exportRenderer compartido, para clip y para imagen fija.
+- Reason: El resultado renderizado se entrega como imagen o como video, sin importar de qué fuente venga.
+- Evidence: createExportRenderer en app-composition.tsx, onPanelAction exportPng/exportVideo; la rama de imagen de export-renderer.ts rellena su propio anillo con el pasado inventado a resolución de export.
 
 ### Performance
 
@@ -193,6 +210,7 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 ## Known Issues
 
 - **Timeline layout**: El runtime posiciona la timeline arriba; Timeshift la necesita abajo (estilo After Effects / Jitter.com). Pendiente de implementar layout override.
+- **Fuente de imagen**: los controles de «Reproducción del clip» siguen visibles con una foto cargada; no aplican hasta que la fuente es un video.
 - **Bug 1 (video no carga)**: El engine WebGL2 no renderiza frames de mp4 (H.264). Funciona con .webm. El binding del asset funciona correctamente. Pendiente verificar con video real del usuario.
 - **Push a main**: Se resolvió el auth de GitHub (device flow) para push. Ahora funciona con gh auth keyring.
 
