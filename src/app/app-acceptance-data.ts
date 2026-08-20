@@ -5,6 +5,9 @@ import type {
   ToolcraftTransferMode,
 } from "./acceptance/types";
 import { appSchema } from "./app-schema";
+import { buildChainAcceptance } from "./timeshift/acceptance/chain-rows";
+import { buildProductAcceptance } from "./timeshift/acceptance/product-rows";
+import { buildSectionInventory } from "./timeshift/schema/section-inventory";
 
 const productPersistenceSlices =
   appSchema.persistence.storage === "localStorage"
@@ -12,7 +15,15 @@ const productPersistenceSlices =
     : [];
 
 export const appTransferMode: ToolcraftTransferMode = {
-  animationIntent: { mode: "none" },
+  animationIntent: {
+    loopDuration: {
+      evidence:
+        "El clip importado fija la duración; sin clip, la app arranca con el bucle de 8 s del esquema para que los LFO y los keyframes tengan un ciclo sobre una imagen fija.",
+      seconds: 8,
+      source: "product-derived",
+    },
+    mode: "timeline-keyframes",
+  },
   mode: "new-toolcraft-app",
 };
 
@@ -20,119 +31,49 @@ export const appProductReadiness: ToolcraftProductReadiness = {
   mode: "product",
   productName: "Timeshift Studio",
   productSummary:
-    "Editor de video con cadena de efectos de 8 slots, timeline con keyframes, y export PNG/Video.",
+    "Editor de efectos temporales: cadena de 8 slots sobre un clip de video o una imagen fija, timeline con keyframes y export PNG/JPG y video.",
   requestedBehavior:
-    "Arrastrar un clip de video, verlo en canvas, aplicarle efectos en cadena (8 slots × 10 tipos), modular parámetros con LFO, editar keyframes en timeline, exportar resultado.",
+    "Arrastrar un clip o una imagen, verla en canvas, aplicarle efectos en cadena (8 slots × 10 tipos), modular parámetros con LFO, editar keyframes en timeline y exportar el resultado.",
   exportIntent: {
     image: { mode: "toolcraft-default" },
-    video: { mode: "not-requested" },
+    video: {
+      evidence:
+        "El producto se pidió como editor de video con export de video («exportar resultado» sobre un clip) y el usuario mantiene «Exportar vídeo» junto al export de imagen.",
+      mode: "user-requested",
+    },
   },
   interactionOwnership: [
     {
-      id: "canvas.preview",
-      surface: "canvas",
-      capability: "direct-spatial-edit",
-      reason: "El canvas es el preview del clip renderizado",
       alternative: {
-        surface: "panel",
-        reason: "El panel no tiene preview del clip",
-      },
-      evidence: {
-        source: "user-request",
-        detail: "Usuario quiere ver el clip en canvas",
-      },
-      target: "canvas.size",
-    },
-    {
-      id: "panel.effects",
-      surface: "panel",
-      capability: "property-edit",
-      reason: "Los efectos se editan desde el panel de controles",
-      alternative: {
+        reason:
+          "El canvas es el resultado renderizado; superponerle una parrilla de efectos taparía el propio producto.",
         surface: "canvas",
-        reason: "No hay handles de efecto en canvas",
       },
+      capability: "structured-selection",
       evidence: {
+        detail:
+          "El usuario elige efectos desde una parrilla con vista previa, no desde el visor.",
         source: "user-request",
-        detail: "Efectos en cadena visibles en panel lateral",
       },
-      target: "panels.controls",
-    },
-    {
-      id: "panel.timeline",
+      id: "chain-effect-browser",
+      reason:
+        "El explorador de efectos vive en el panel, junto a la cadena que edita.",
       surface: "panel",
-      capability: "property-edit",
-      reason: "La timeline se edita desde el panel inferior",
-      alternative: {
-        surface: "canvas",
-        reason: "No hay controles de timeline en canvas",
-      },
-      evidence: {
-        source: "user-request",
-        detail: "Timeline con keyframes en panel inferior",
-      },
-      target: "panels.timeline",
-    },
-    {
-      id: "panel.export",
-      surface: "panel",
-      capability: "command",
-      reason: "Export se dispara desde sticky footer actions",
-      alternative: {
-        surface: "canvas",
-        reason: "No hay botón de export en canvas",
-      },
-      evidence: {
-        source: "user-request",
-        detail: "Botón de export en panel actions",
-      },
-      target: "onPanelAction",
+      target: "chain.browser",
     },
   ],
   viewInteraction: {
-    mode: "orbit",
-    orientationTargets: ["canvas.size"],
+    mode: "non-spatial",
+    reason:
+      "La salida es un plano 2D renderizado sobre la fuente importada; no hay escena tridimensional que orbitar ni pose que editar.",
   },
 };
 
 export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
-  {
-    automated: true,
-    automatedTestName:
-      "declares production reload coverage for the product schema",
-    browser: true,
-    browserTestName:
-      "browser: app restores exact canvas, values, and panel workspace slices after reload",
-    componentType: "persistence",
-    evidence: "persistence-state",
-    expectedObservable:
-      "Canvas size, clip position, effect slot selections, and expanded timeline remain restored after reload.",
-    fixture: "timeshift persisted workspace",
-    id: "persistence.reload",
-    kind: "runtime",
-    persistenceCoverage: "reload",
-    persistenceSlices: productPersistenceSlices,
-    target: "canvas.size.width",
-    userAction: "Upload a clip, select an effect, expand timeline, reload, and verify restored state.",
-  },
-  {
-    automated: true,
-    automatedTestName:
-      "timeline extended by default on mount",
-    browser: false,
-    browserTestName:
-      "(not applicable — browser test not required for mount-only)",
-    componentType: "timeline",
-    evidence: "viewport-side-effect",
-    expectedObservable:
-      "Timeline panel is expanded on first render without user interaction.",
-    fixture: "timeshift start state",
-    id: "timeline.default-on",
-    kind: "runtime",
-    target: "panels.timeline.extended",
-    userAction: "Open the app and observe the timeline panel is expanded.",
-  },
+  ...buildProductAcceptance(productPersistenceSlices),
+  ...buildChainAcceptance(),
 ];
 
 // Product entries use the same explicit stable section IDs as appSchema.
-export const appControlSectionInventory: readonly ToolcraftControlSectionInventoryEntry[] = [];
+export const appControlSectionInventory: readonly ToolcraftControlSectionInventoryEntry[] =
+  buildSectionInventory(appSchema);

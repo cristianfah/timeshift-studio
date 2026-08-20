@@ -1,7 +1,7 @@
 # TIMESHIFT_STUDIO
 
-**Laboratorio de efectos temporales de video en tiempo real, para cineastas AI.**
-Real-time temporal video effects lab for AI filmmakers — running 100% client-side.
+**Laboratorio de efectos temporales de video e imagen en tiempo real, para cineastas AI.**
+Real-time temporal video and still-image effects lab for AI filmmakers — running 100% client-side.
 
 > ⚠️ **Migración a Toolcraft en progreso.**
 > Esta app está siendo migrada de la arquitectura vanilla original a
@@ -14,6 +14,7 @@ Real-time temporal video effects lab for AI filmmakers — running 100% client-s
 
 - ✅ Timeline extendida por defecto
 - ✅ Canvas con preview del clip sobre WebGL2
+- ✅ Fuente de imagen fija: la misma cadena corre sobre una foto y se exporta a PNG/JPG (2K/4K/8K)
 - ✅ Cadena de efectos (8 slots × 10 tipos)
 - ✅ Acceptance y tests de producto
 - 🔄 Timeline: falta posicionarla abajo (estilo After Effects / Jitter.com)

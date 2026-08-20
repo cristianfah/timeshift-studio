@@ -10,6 +10,21 @@
       "acceptanceIds": ["persistence.reload"],
       "kind": "functional",
       "path": "src/app/app-schema.ts"
+    },
+    {
+      "acceptanceIds": ["persistence.reload"],
+      "kind": "functional",
+      "path": "src/app/timeshift/engine/still-history.ts"
+    },
+    {
+      "acceptanceIds": ["persistence.reload"],
+      "kind": "functional",
+      "path": "src/app/timeshift/react/clip-source.ts"
+    },
+    {
+      "acceptanceIds": ["persistence.reload"],
+      "kind": "functional",
+      "path": "src/app/timeshift/react/use-preview-source.ts"
     }
   ]
 }
