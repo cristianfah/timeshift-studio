@@ -24,6 +24,19 @@ export type ChainAcceptanceRow = ToolcraftComponentAcceptance & {
   target: string;
 };
 
+/**
+ * Browser proof is grouped by effect: one test drives every parameter of one
+ * effect through the panel and proves the product output changes for each of
+ * them, in more than one chain position. The automated test stays per control.
+ */
+export function chainParamsBrowserTestName(label: string): string {
+  return `browser: los parámetros de ${label} cambian el render`;
+}
+
+export function chainModulatorBrowserTestName(label: string): string {
+  return `browser: los moduladores de ${label} animan el efecto`;
+}
+
 function paramRow(
   slot: number,
   type: string,
@@ -36,7 +49,7 @@ function paramRow(
     automated: true,
     automatedTestName: test,
     browser: true,
-    browserTestName: `browser: ${test}`,
+    browserTestName: chainParamsBrowserTestName(label),
     evidence: "product-output" as const,
     fixture: FIXTURE,
     id: `fx.${slot}.${type}.${def.key}`,
@@ -141,7 +154,7 @@ function modulatorRows(
         automated: true,
         automatedTestName: test,
         browser: true,
-        browserTestName: `browser: ${test}`,
+        browserTestName: chainModulatorBrowserTestName(label),
         componentType: field.componentType,
         evidence: "product-output",
         expectedObservable: `${label} · ${slot + 1} · Modulador ${index + 1}: ${field.observable}`,

@@ -356,6 +356,20 @@ describe("superficies fijas del producto", () => {
 
     expect(chain.map((entry) => entry.layerId)).toEqual(["a", "b"]);
     expect(chain.map((entry) => entry.type)).toEqual(["rgbSplit", "scanSweep"]);
+
+    // The layer that owns the imported source is material, not a chain
+    // position: it must not shift the layer-to-slot binding.
+    const withSource = deriveChain(
+      [layer("source"), layer("a"), layer("b")],
+      values,
+      new Set(["source"]),
+    );
+
+    expect(withSource.map((entry) => entry.layerId)).toEqual(["a", "b"]);
+    expect(withSource.map((entry) => entry.type)).toEqual([
+      "rgbSplit",
+      "scanSweep",
+    ]);
   });
 
   it("ocultar una capa saca su efecto del render", () => {

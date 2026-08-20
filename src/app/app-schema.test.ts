@@ -4,6 +4,8 @@ import {
   appAcceptance,
   validateProductAcceptanceCoverage,
 } from "./app-acceptance";
+import { deriveToolcraftPerformancePaths } from "@/toolcraft/runtime";
+
 import { appPerformance } from "./app-performance";
 import { appSchema } from "./app-schema";
 
@@ -69,9 +71,29 @@ describe("appSchema", () => {
     expect(appSchema.panels.timeline?.defaultDurationSeconds).toBe(8);
   });
 
-  it("keeps performance paths empty until controls are benchmarked", () => {
-    expect(appPerformance.scenarios).toEqual([]);
-    expect(appPerformance.workloadEnvelope).toEqual({ dimensions: [] });
+  it("declares the WebGL render plan the product actually runs", () => {
+    expect(appPerformance.rendererStrategy).toBe("webgl");
+    expect(appPerformance.usesCustomRenderer).toBe(true);
+
+    // Only the controls that change how much work the engine does are workload
+    // dimensions: the internal resolution, the ring depth and the two export
+    // resolutions.
+    expect(
+      appPerformance.workloadEnvelope.dimensions.map(({ id }) => id).sort(),
+    ).toEqual([
+      "image-export-edge",
+      "preview-width",
+      "ring-depth",
+      "video-export-edge",
+    ]);
+
+    // One scenario per canonical path, with ids derived from the plan.
+    const paths = deriveToolcraftPerformancePaths(appSchema, appPerformance);
+
+    expect(paths.length).toBeGreaterThan(0);
+    expect(appPerformance.scenarios.map(({ pathId }) => pathId).sort()).toEqual(
+      paths.map(({ id }) => id).sort(),
+    );
   });
 
   it("declares production reload coverage for the product schema", () => {

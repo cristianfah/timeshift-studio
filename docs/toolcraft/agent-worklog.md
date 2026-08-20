@@ -103,6 +103,24 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 - Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
 - Risks: Queda abierto el contrato de performance. El motor es un renderer WebGL2 propio, así que debe declarar envelope, pipeline ejecutable, un escenario por path canónico y sus adaptadores; pero el contrato de pipeline prohíbe que una interacción de alta frecuencia invalide un pase `pixel-transform`, que es exactamente lo que hace la reproducción cuadro a cuadro de este producto. Esa contradicción necesita una decisión de producto antes de declarar nada. Además, el inventario de impacto por módulo crece a cientos de kilobytes con 2.480 filas: si se modela el banco de LFO como una colección (el patrón que el propio contrato recomienda para entidades repetibles) bajarían a ~640.
 
+### Iteration 5 — Plan de render declarado y la capa de la fuente fuera de la cadena
+
+- Request: "Atacar el plan de render directo" tras el cierre de contratos de la iteración anterior.
+- Task type: Performance (envelope, pipeline, paths), más el arreglo de cadena que el intento de prueba en navegador destapó.
+- User-visible result: Los efectos vuelven a mapearse a la capa correcta. La capa de la fuente importada ocupaba una posición de cadena, así que cada efecto quedaba atado a los parámetros del anterior y el último de la cadena no se renderizaba nunca; ahora la fuente es material y no posición.
+- Source/reference checked: El propio motor (`engine/renderer.ts`, `engine/ringbuffer.ts`, `react/export-renderer.ts`) para describir los pases reales, y el panel en navegador, donde seleccionar la capa de un efecto no mostraba sus parámetros.
+- Reference inputs: Ninguna referencia externa.
+- Docs/contracts read: `core/performance.md`, `performance.md`, `renderer-technique.md`, `core/runtime-boundary.md`.
+- Contract rules applied: dimensiones de workload sólo para los controles que cambian cuánto trabajo hay; registro ejecutable del pipeline con recurso retenido por pase; un escenario por path canónico con ids derivados, nunca escritos a mano; técnica de renderer con riesgos declarados.
+- View interaction intent: `non-spatial`, sin cambios.
+- Interaction ownership: Sin superficies nuevas.
+- Decision: Cuatro dimensiones de workload —resolución interna, profundidad del anillo y las dos resoluciones de export— y cuatro pases: subida del fotograma al anillo, cadena de shaders, composición al canvas y frame de export. La reproducción no aparece en `interactionInvalidation`: la cadena no corre otra vez porque la reproducción invalide una caché, corre una vez por frame por construcción, que es lo que declara `cost.frequency: "frame"`. Declararla como invalidación chocaría con la regla que prohíbe que una interacción de alta frecuencia invalide un pase `pixel-transform`.
+- Alternatives rejected: Seguir declarando `rendererStrategy: "none"` (falso: el producto tiene renderer propio); llamar `decode` al pase de subida para esquivar la regla de frecuencia; escribir los ids de path a mano.
+- State/output mapping: Los controles de motor y de export alimentan las dimensiones del envelope; los pases declarados corresponden uno a uno con el motor (`FrameRing`, cadena ping-pong, blit al canvas, motor de export).
+- Performance intent: ordinary-product-work
+- Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
+- Risks: La prueba en navegador de los controles de cadena sigue pendiente y, con el esquema actual, es impracticable: el panel declara 2.480 controles, y en esa magnitud cada consulta de Playwright sobre el árbol de accesibilidad tarda minutos —un solo efecto con seis aserciones tardó 5,5 minutos y el test de moduladores agotó cinco minutos sólo localizando un interruptor. Modelar el banco de LFO como colección bajaría los controles a ~640 y haría viable esa matriz. Mientras tanto, `maps every product production module to current renderer pass ownership` queda en rojo: el catálogo exige que exista un test de navegador por cada nombre declarado.
+
 ## Decisions
 
 ### Renderer
@@ -149,9 +167,9 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 
 ### Performance
 
-- Decision: Pendiente definir workload (renderizado de clip, 8 slots de efectos, playback).
-- Reason: Depende del renderer WebGL2 y la cantidad de efectos activos.
-- Evidence: Sin escenarios de performance definidos en app-performance.ts.
+- Decision: Envelope de cuatro dimensiones (resolución interna, profundidad del anillo, resolución de export de imagen y de video), pipeline ejecutable de cuatro pases y un escenario por path canónico derivado del plan.
+- Reason: El producto tiene un renderer WebGL2 propio, así que el plan de render es suyo y no del runtime.
+- Evidence: `src/app/timeshift/performance/*` y `app-performance.ts`; `assessToolcraftRenderPlan` y `validateToolcraftPerformanceCoverage` pasan en la política funcional. Las decisiones de kernel quedan pendientes, que es lo que esa política permite.
 
 ## Evidence
 
@@ -166,7 +184,8 @@ Protected receipts own changed files, the derived plan, commands, selectors, rep
 
 - **Timeline layout**: El runtime posiciona la timeline arriba; Timeshift la necesita abajo (estilo After Effects / Jitter.com). Pendiente de implementar layout override.
 - **Fuente de imagen**: los controles de «Reproducción del clip» siguen visibles con una foto cargada; no aplican hasta que la fuente es un video.
-- **Contrato de performance**: `app-performance.ts` sigue declarando el starter neutro. El producto tiene renderer propio y debe declarar el plan completo; ver Iteration 4 para la contradicción pendiente.
+- **Prueba en navegador de la cadena**: con 2.480 controles declarados, una matriz de prueba por control en Playwright es impracticable (minutos por consulta de localizador). Ver Iteration 5.
+- **Entorno remoto sin IPv6**: el buscador de puertos exige el puerto libre en IPv4 e IPv6, así que `npm run dev` y Playwright fallan en contenedores sin `::1`. Playwright se puede correr igual fijando `TOOLCRAFT_RESOLVED_TEST_PORT`.
 - **Export de video sin audio**: el codificador del runtime no muxea audio, así que el export de video sale mudo.
 - **Bug 1 (video no carga)**: El engine WebGL2 no renderiza frames de mp4 (H.264). Funciona con .webm. El binding del asset funciona correctamente. Pendiente verificar con video real del usuario.
 - **Push a main**: Se resolvió el auth de GitHub (device flow) para push. Ahora funciona con gh auth keyring.
