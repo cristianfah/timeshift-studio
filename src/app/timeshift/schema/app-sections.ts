@@ -34,8 +34,31 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
         source: {
           applicability: ALWAYS,
           // Un solo cargador para ambos tipos: la cadena de efectos es la
-          // misma, solo cambia de dónde salen los fotogramas.
-          accept: "video/*,image/*",
+          // misma, solo cambia de dónde salen los fotogramas. Las extensiones
+          // van además de los comodines porque algunos sistemas entregan el
+          // archivo arrastrado sin tipo MIME, y sin ellas ese archivo se
+          // rechazaría en silencio.
+          accept: [
+            "video/*",
+            "image/*",
+            ".mp4",
+            ".webm",
+            ".mov",
+            ".m4v",
+            ".mkv",
+            ".ogv",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp",
+            ".gif",
+            ".avif",
+            ".bmp",
+            ".heic",
+            ".heif",
+            ".tif",
+            ".tiff",
+          ].join(","),
           assetKind: "file",
           description:
             "Video o imagen. Se decodifica en tu equipo; no se sube a ningún servidor.",

@@ -120,6 +120,11 @@ describe("superficies fijas del producto", () => {
     expect(source.assetKind).toBe("file");
     expect(source.accept).toContain("video/*");
     expect(source.accept).toContain("image/*");
+    // Some systems hand over a dragged file with an empty MIME type, so the
+    // extensions have to be listed too or the drop is rejected in silence.
+    for (const extension of [".png", ".jpg", ".jpeg", ".webp", ".heic", ".mp4", ".mov"]) {
+      expect(source.accept).toContain(extension);
+    }
     expect(
       readClipSourceKind({
         assetKind: "file",
