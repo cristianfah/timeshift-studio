@@ -33,7 +33,7 @@ export const appProductReadiness: ToolcraftProductReadiness = {
   productSummary:
     "Editor de efectos temporales: cadena de 8 slots sobre un clip de video o una imagen fija, timeline con keyframes y export PNG/JPG y video.",
   requestedBehavior:
-    "Arrastrar un clip o una imagen, verla en canvas, aplicarle efectos en cadena (8 slots × 10 tipos), modular parámetros con LFO, editar keyframes en timeline y exportar el resultado.",
+    "Arrastrar un clip o una imagen, verla en canvas, aplicarle efectos en cadena (8 slots × 11 tipos), modular parámetros con LFO, editar keyframes en timeline y exportar el resultado.",
   exportIntent: {
     image: { mode: "toolcraft-default" },
     video: {

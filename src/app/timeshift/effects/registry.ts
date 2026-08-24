@@ -9,6 +9,7 @@ import type {
   RenderContext,
 } from "../types";
 import blockShuffle from "./block-shuffle";
+import dither from "./dither";
 import lumaTime from "./luma-time";
 import motionTrack from "./motion-track";
 import particleWind from "./particle-wind";
@@ -28,6 +29,7 @@ const modules = [
   scanSweep,
   lumaTime,
   pixelSynth,
+  dither,
   particleWind,
   motionTrack,
 ] as unknown as readonly AnyEffectModule[];

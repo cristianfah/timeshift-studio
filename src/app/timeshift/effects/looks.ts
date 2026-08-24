@@ -93,6 +93,25 @@ export const LOOKS: Record<string, Look> = {
       },
     ],
   },
+  RISOGRAFIA: {
+    label: "Risografía",
+    steps: [
+      { type: "rgbSplit", values: { delayB: 6, delayG: 3, delayR: 0 } },
+      {
+        type: "dither",
+        values: {
+          cell: 3,
+          color: "tinta",
+          contrast: 1.25,
+          hue: 214,
+          levels: 2,
+          pattern: "bayer8",
+          sat: 0.9,
+          spread: 1,
+        },
+      },
+    ],
+  },
   SMEAR: {
     label: "Arrastre",
     steps: [

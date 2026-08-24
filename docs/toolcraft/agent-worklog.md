@@ -171,6 +171,22 @@ The quoted evidence must be an exact nontrivial raw substring of `Request` with 
 - Reason: El producto tiene un renderer WebGL2 propio, así que el plan de render es suyo y no del runtime.
 - Evidence: `src/app/timeshift/performance/*` y `app-performance.ts`; `assessToolcraftRenderPlan` y `validateToolcraftPerformanceCoverage` pasan en la política funcional. Las decisiones de kernel quedan pendientes, que es lo que esa política permite.
 
+### Iteration 6 — Efecto Dither para foto y video
+
+- Request: «me gustaria agregar efecto dither a la app, tanto para foto como para video, que tenga buenos sliders para customizar, hazlo de forma facil».
+- Task type: Nuevo módulo de efecto en la cadena (shader WebGL2) más su registro y su cobertura generada.
+- User-visible result: Un efecto «Dither» en el explorador de efectos, con siete presets (1BIT, GAMEBOY, HERVIDO, PRENSA, RETRO, RISO, TRAMA) y un look «Risografía». Trama la fuente en pocos niveles con Bayer 2×2/4×4/8×8, ruido, semitono o líneas, y se controla con sliders de Punto, Niveles, Dispersión, Contraste, Umbral, Mezcla, Tono de tinta, Saturación, Ruido temporal y Retardo, más los selectores Trama, Color e Invertir.
+- Source/reference checked: Captura aportada por el usuario (busto tramado en azul sobre blanco) como objetivo visual; los módulos existentes `pixel-synth.ts` y `rgb-split.ts` como forma canónica de un efecto.
+- Reference inputs: Una imagen fija de referencia (dither azul 1 bit). No hay referencia de video, así que no corresponde un Video Reference Study.
+- Docs/contracts read: `AGENTS.md`, `docs/toolcraft/schema-reference.md` y `acceptance-testing.md` (secciones y filas generadas), más el registro y los tipos del motor portado.
+- Contract rules applied: El efecto se declara como un `EffectModule` más en `effects/registry.ts`, así que sus secciones de panel, sus moduladores LFO y sus filas de aceptación los generan `schema/effect-sections.ts`, `schema/section-inventory.ts` y `acceptance/chain-rows.ts` sin controles escritos a mano ni componentes nativos.
+- Decision: Trama ordenada en el fragment shader (Bayer recursivo, hash, punto de clúster y sawtooth diagonal) en lugar de difusión de error tipo Floyd–Steinberg, que es secuencial y no cabe en un pase por píxel. La cuantización usa una rejilla de celdas derivada de `Punto`, así que el mismo pase pixela y tramar a la vez.
+- Alternatives rejected: Difusión de error en CPU (rompería el pase WebGL2 y el export a resolución nativa); selectores de color nativos para tinta y papel (el modelo de parámetros del motor sólo admite número y opción, y el contrato prohíbe sustituir controles del esquema); un efecto separado para foto y otro para video (la cadena ya corre igual sobre ambas fuentes).
+- State/output mapping: `fx.<slot>.dither.<param>` → `resolveSlotParams` → uniformes `uGrid`, `uLevels`, `uSpread`, `uPattern`, `uColorMode`… → canvas de preview y artefacto exportado, por el mismo camino que el resto de la cadena.
+- Performance intent: ordinary-product-work
+- Verification: One bare `npm run verify:delivery` will derive and run the protected proof.
+- Risks: Con `Punto` en 1 y `Ruido temporal` alto la trama cambia en cada frame, lo que en video se comprime peor; es una decisión estética del usuario, no un fallo del pase.
+
 ## Evidence
 
 - Source reviewed: timeshift-studio vanilla v1 (legacy/vanilla-v1/), neutral starter schema, local Toolcraft docs.

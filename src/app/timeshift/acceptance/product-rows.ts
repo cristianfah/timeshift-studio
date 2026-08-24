@@ -93,7 +93,7 @@ function buildControlRows(): ToolcraftComponentAcceptance[] {
       ...controlRow({
         componentType: "effectBrowser",
         expectedObservable:
-          "El explorador lista los diez efectos y añadir uno lo agrega a la cadena y al render.",
+          "El explorador lista los once efectos y añadir uno lo agrega a la cadena y al render.",
         id: "chain.browser",
         target: "chain.browser",
         test: "el explorador de efectos añade un efecto a la cadena",
@@ -106,7 +106,7 @@ function buildControlRows(): ToolcraftComponentAcceptance[] {
         productObservable:
           "Al añadir una tarjeta el efecto aparece en la cadena y el canvas cambia.",
         whyInsufficient:
-          "ImagePicker sólo muestra imágenes estáticas y no puede presentar diez efectos temporales corriendo sobre la fuente del usuario, que es lo que permite elegir uno.",
+          "ImagePicker sólo muestra imágenes estáticas y no puede presentar once efectos temporales corriendo sobre la fuente del usuario, que es lo que permite elegir uno.",
       },
       customControlCoverage: "all-custom-control-behavior",
       interactionId: "chain-effect-browser",

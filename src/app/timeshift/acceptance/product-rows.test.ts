@@ -207,7 +207,7 @@ describe("superficies fijas del producto", () => {
     const browser = control("chain.browser");
 
     expect(browser.type).toBe("effectBrowser");
-    expect(Object.keys(registry)).toHaveLength(10);
+    expect(Object.keys(registry)).toHaveLength(11);
     // The browser appends to the first free chain position and keeps the
     // slot order the layers panel reads back.
     expect(firstFreeSlot([0, 1])).toBe(2);
