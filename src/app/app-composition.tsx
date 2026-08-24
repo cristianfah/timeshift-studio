@@ -5,7 +5,7 @@ import type { ToolcraftAppComposition } from "@/toolcraft/runtime/react";
 import { appSchema } from "./app-schema";
 import { createExportRenderer } from "./timeshift/react/export-renderer";
 import { TimeshiftCanvas } from "./timeshift/react/timeshift-canvas";
-import { clipUrlRef } from "./timeshift/react/clip-url";
+import { clipSourceRef } from "./timeshift/react/clip-source";
 import { createPanelActionHandler } from "./timeshift/react/panel-actions";
 import { openEffectBrowser } from "./timeshift/react/effect-browser";
 import { timeshiftControlRenderers } from "./timeshift/react/control-renderers";
@@ -19,7 +19,7 @@ export const appComposition: ToolcraftAppComposition = {
     </>
   ),
   controlRenderers: timeshiftControlRenderers,
-  exportRenderer: createExportRenderer(() => clipUrlRef.current),
+  exportRenderer: createExportRenderer(() => clipSourceRef.current),
   onPanelAction: createPanelActionHandler({
     exportPng: async () => {
       // The runtime owns image encoding through `exportRenderer`.

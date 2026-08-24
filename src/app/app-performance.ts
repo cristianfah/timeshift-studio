@@ -3,10 +3,17 @@ import {
   type ToolcraftEnvelopePerformanceConfig,
 } from "@/toolcraft/runtime";
 
+import { appPerformanceScenarios } from "./timeshift/performance/scenarios";
+import { timeshiftRendererPipeline } from "./timeshift/performance/pipeline";
+import { timeshiftRendererTechnique } from "./timeshift/performance/technique";
+import { timeshiftWorkloadEnvelope } from "./timeshift/performance/envelope";
+
 export const appPerformance: ToolcraftEnvelopePerformanceConfig =
   defineToolcraftPerformance({
-    rendererStrategy: "none",
-    scenarios: [],
-    usesCustomRenderer: false,
-    workloadEnvelope: { dimensions: [] },
+    rendererPipeline: timeshiftRendererPipeline,
+    rendererStrategy: "webgl",
+    rendererTechnique: timeshiftRendererTechnique,
+    scenarios: appPerformanceScenarios,
+    usesCustomRenderer: true,
+    workloadEnvelope: timeshiftWorkloadEnvelope,
   });

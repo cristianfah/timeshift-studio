@@ -1,7 +1,7 @@
 # TIMESHIFT_STUDIO
 
-**Laboratorio de efectos temporales de video en tiempo real, para cineastas AI.**
-Real-time temporal video effects lab for AI filmmakers — running 100% client-side.
+**Laboratorio de efectos temporales de video e imagen en tiempo real, para cineastas AI.**
+Real-time temporal video and still-image effects lab for AI filmmakers — running 100% client-side.
 
 > ⚠️ **Migración a Toolcraft en progreso.**
 > Esta app está siendo migrada de la arquitectura vanilla original a
@@ -14,7 +14,8 @@ Real-time temporal video effects lab for AI filmmakers — running 100% client-s
 
 - ✅ Timeline extendida por defecto
 - ✅ Canvas con preview del clip sobre WebGL2
-- ✅ Cadena de efectos (8 slots × 10 tipos)
+- ✅ Fuente de imagen fija: la misma cadena corre sobre una foto y se exporta a PNG/JPG (2K/4K/8K)
+- ✅ Cadena de efectos (8 slots × 11 tipos)
 - ✅ Acceptance y tests de producto
 - 🔄 Timeline: falta posicionarla abajo (estilo After Effects / Jitter.com)
 - 🔄 Engine: falta renderizar frames de mp4 en WebGL2
@@ -61,7 +62,7 @@ Para ejecutarla: `npx serve legacy/vanilla-v1/`
   (resolución de preview + segundos de buffer).
   *WebGL2 engine: decoded frames feed a texture ring buffer; every effect is
   a fragment shader sampling that frame history. Bounded, configurable memory.*
-- **10 efectos apilables / 10 stackable effects** (cadena ordenada con
+- **11 efectos apilables / 11 stackable effects** (cadena ordenada con
   ping-pong framebuffers, toggles por efecto):
   - `SLICE_BANDS` — slit-scan clásico: N bandas paralelas, cada una desde un
     frame distinto del pasado. Rotación libre 0–180°, espaciado lineal o
@@ -83,6 +84,13 @@ Para ejecutarla: `npx serve legacy/vanilla-v1/`
     capas: símbolos, ASCII o bloques por celda, con banda de luminancia
     (apila varias instancias para el look "pixelcrash") y tinta
     blanco/color fuente/sobre video. *Brightness → layered glyph textures.*
+  - `DITHER` — cuantización con trama: la imagen baja a pocos niveles y el
+    error se reparte con Bayer 2×2/4×4/8×8, ruido, semitono de clúster o
+    líneas diagonales. Punto (pixelado), niveles, dispersión, contraste,
+    umbral y mezcla; tinta mono / color con tono y saturación / cuantización
+    de los tres canales; ruido temporal para que la trama hierva por frame y
+    retardo para tramar un frame del pasado.
+    *Ordered dithering for photo and video.*
   - `VIENTO` — disolución direccional en partículas: smear por espacio y
     tiempo a lo largo del viento, con turbulencia y grano parpadeante.
     *Directional particle dissolution through space and time.*

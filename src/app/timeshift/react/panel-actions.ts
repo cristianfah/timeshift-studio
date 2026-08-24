@@ -1,6 +1,6 @@
-// Sticky product actions plus the local section commands (looks, chain,
-// clipboard). Everything routes through runtime commands so history, reset and
-// settings transfer keep working.
+// Sticky product actions plus the local section commands (looks and chain).
+// Everything routes through runtime commands so history, reset and settings
+// transfer keep working.
 
 import type {
   ToolcraftCommand,
@@ -10,7 +10,6 @@ import type { ToolcraftPanelActionContext } from "@/toolcraft/runtime/react";
 
 import { LOOKS } from "../effects/looks";
 import { registry } from "../effects/registry";
-import { buildRenderCommand } from "../render-command";
 import {
   CHAIN_SLOTS,
   slotEnabledTarget,
@@ -115,16 +114,6 @@ function clearChain(state: ToolcraftState, dispatch: Dispatch): void {
   setValue(dispatch, CHAIN_ORDER_TARGET, serializeOrder([]), "chain-clear");
 }
 
-async function copyRenderCommand(state: ToolcraftState): Promise<void> {
-  const command = buildRenderCommand(state);
-
-  try {
-    await navigator.clipboard.writeText(command);
-  } catch {
-    // Clipboard permission denied; the command stays visible in the panel.
-  }
-}
-
 export type TimeshiftActionHooks = {
   openBrowser: () => void;
   exportPng: (ctx: ToolcraftPanelActionContext) => Promise<void>;
@@ -147,9 +136,6 @@ export function createPanelActionHandler(hooks: TimeshiftActionHooks) {
         return;
       case "clear":
         clearChain(ctx.state, dispatch);
-        return;
-      case "copy-command":
-        await copyRenderCommand(ctx.state);
         return;
       case "export-png":
         await hooks.exportPng(ctx);

@@ -2,8 +2,16 @@
 
 import type { ToolcraftControlSectionSchema } from "@/toolcraft/runtime";
 
+import {
+  DEFAULT_STILL_MOTION,
+  DEFAULT_STILL_MOTION_AMOUNT,
+  STILL_MOTIONS,
+} from "../engine/still-history";
 import { LOOKS } from "../effects/looks";
 import { targets } from "../targets";
+
+/** Every product control below is usable whenever its section is on screen. */
+const ALWAYS = { mode: "always" } as const;
 
 export const previewWidthOptions = [
   { label: "640 px", value: "640" },
@@ -20,26 +28,91 @@ export const bufferSecondsOptions = [
 
 export function buildAppSections(): ToolcraftControlSectionSchema[] {
   return [
-    // --- Clip: fuente del video ---
+    // --- Fuente: el video o la imagen sobre la que corre la cadena ---
     {
       controls: {
         source: {
-          accept: "video/*",
+          applicability: ALWAYS,
+          // Un solo cargador para ambos tipos: la cadena de efectos es la
+          // misma, solo cambia de dónde salen los fotogramas. Las extensiones
+          // van además de los comodines porque algunos sistemas entregan el
+          // archivo arrastrado sin tipo MIME, y sin ellas ese archivo se
+          // rechazaría en silencio.
+          accept: [
+            "video/*",
+            "image/*",
+            ".mp4",
+            ".webm",
+            ".mov",
+            ".m4v",
+            ".mkv",
+            ".ogv",
+            ".png",
+            ".jpg",
+            ".jpeg",
+            ".webp",
+            ".gif",
+            ".avif",
+            ".bmp",
+            ".heic",
+            ".heif",
+            ".tif",
+            ".tiff",
+          ].join(","),
           assetKind: "file",
           description:
-            "El clip se decodifica en tu equipo. No se sube a ningún servidor.",
-          label: "Clip",
+            "Video o imagen. Se decodifica en tu equipo; no se sube a ningún servidor.",
+          label: "Fuente",
+          performanceReason:
+            "El tamaño nativo de la fuente decide cuánto hay que escalar en cada subida de fotograma al anillo.",
+          performanceRole: "responsiveness",
           target: targets.source,
           type: "fileDrop",
         },
       },
       id: "clip-source",
-      title: "Clip",
+      title: "Fuente",
+    },
+    // --- Imagen fija: el pasado que la cadena necesita para tener efecto ---
+    {
+      controls: {
+        motion: {
+          applicability: ALWAYS,
+          defaultValue: DEFAULT_STILL_MOTION,
+          description:
+            "Una foto no tiene pasado y los efectos leen el pasado. El fotograma actual sigue siendo tu imagen intacta; los fotogramas anteriores se alejan con este movimiento.",
+          label: "Movimiento inventado",
+          options: [...STILL_MOTIONS],
+          performanceReason:
+            "Repinta el historial una sola vez al cambiar; no añade trabajo por frame.",
+          performanceRole: "responsiveness",
+          target: targets.stillMotion,
+          type: "select",
+        },
+        amount: {
+          applicability: ALWAYS,
+          defaultValue: DEFAULT_STILL_MOTION_AMOUNT,
+          description:
+            "Cuánto se alejan los fotogramas inventados. En 0 los efectos temporales no tienen nada que mostrar.",
+          label: "Intensidad",
+          max: 1,
+          min: 0,
+          performanceReason:
+            "Repinta el historial una sola vez al cambiar; no añade trabajo por frame.",
+          performanceRole: "responsiveness",
+          step: 0.01,
+          target: targets.stillMotionAmount,
+          type: "slider",
+        },
+      },
+      id: "still-motion",
+      title: "Imagen fija",
     },
     // --- Looks: selector de efectos tipo vanilla (grid de 9 looks) ---
     {
       controls: {
         apply: {
+          applicability: ALWAYS,
           actions: Object.entries(LOOKS).map(([value, look]) => ({
             label: look.label,
             value,
@@ -48,6 +121,9 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
           description:
             "Cada look reemplaza la cadena por una combinación ya montada.",
           label: "Aplicar look",
+          performanceReason:
+            "Reemplaza la cadena en un solo comando; el coste por frame lo fija la cadena resultante.",
+          performanceRole: "responsiveness",
           target: "looks.apply",
           type: "actions",
         },
@@ -59,12 +135,17 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
     {
       controls: {
         browser: {
+          applicability: ALWAYS,
           defaultValue: "",
+          performanceReason:
+            "Abre el explorador de efectos; no cambia el trabajo del motor por frame.",
+          performanceRole: "responsiveness",
           label: false,
           target: "chain.browser",
           type: "effectBrowser",
         },
         manage: {
+          applicability: ALWAYS,
           actions: [
             {
               icon: "eraser" as const,
@@ -74,6 +155,9 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
             },
           ],
           label: "Cadena completa",
+          performanceReason:
+            "Vaciar la cadena quita pases del bucle de render en un solo comando.",
+          performanceRole: "responsiveness",
           target: "chain.manage",
           type: "actions",
         },
@@ -85,6 +169,7 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
     {
       controls: {
         previewWidth: {
+          applicability: ALWAYS,
           defaultValue: "854",
           description:
             "Resolución interna del motor. El export siempre sale a resolución nativa.",
@@ -97,6 +182,7 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
           type: "select",
         },
         bufferSeconds: {
+          applicability: ALWAYS,
           defaultValue: "3",
           description:
             "Cuánto pasado guarda el motor. Los efectos no pueden mirar más atrás de este margen.",
@@ -116,35 +202,49 @@ export function buildAppSections(): ToolcraftControlSectionSchema[] {
     {
       controls: {
         muted: {
+          applicability: ALWAYS,
           defaultValue: true,
-          description: "El audio original se conserva en el export aunque lo silencies aquí.",
+          description:
+            "Silencia la reproducción del clip en el editor. El export de video no lleva pista de audio.",
           label: "Silenciar",
+          performanceReason:
+            "Sólo afecta al elemento de video del editor, no al motor.",
+          performanceRole: "responsiveness",
           target: targets.muted,
           type: "switch",
         },
         trimIn: {
+          applicability: ALWAYS,
           defaultValue: 0,
-          description: "Inicio de la región que se reproduce en bucle y se exporta.",
+          description:
+            "Inicio de la región del clip. La timeline pasa a durar solo la región y el export entrega ese tramo.",
           label: "Entrada",
           max: 1,
           min: 0,
+          performanceReason:
+            "Mueve el punto de partida del clip; el trabajo por frame no cambia.",
+          performanceRole: "responsiveness",
           step: 0.001,
           target: targets.trimIn,
           type: "slider",
         },
         trimOut: {
+          applicability: ALWAYS,
           defaultValue: 1,
-          description: "Fin de la región que se reproduce en bucle y se exporta.",
+          description: "Fin de la región del clip que se reproduce y se exporta.",
           label: "Salida",
           max: 1,
           min: 0,
+          performanceReason:
+            "Mueve el final del clip; el trabajo por frame no cambia.",
+          performanceRole: "responsiveness",
           step: 0.001,
           target: targets.trimOut,
           type: "slider",
         },
       },
       id: "clip-playback",
-      title: "Reproducción",
+      title: "Reproducción del clip",
     },
   ];
 }
@@ -155,13 +255,21 @@ export function buildExportSections(): ToolcraftControlSectionSchema[] {
     {
       controls: {
         include: {
+          applicability: ALWAYS,
           defaultValue: true,
           label: "Incluir",
+          performanceReason:
+            "Sólo decide si el fondo entra en el artefacto exportado.",
+          performanceRole: "responsiveness",
           target: targets.exportIncludeBackground,
           type: "switch",
         },
         color: {
+          applicability: ALWAYS,
           defaultValue: "#0b0d11",
+          performanceReason:
+            "Pinta el fondo del producto; no cambia el trabajo del motor.",
+          performanceRole: "responsiveness",
           label: false,
           target: "appearance.background",
           type: "color",
@@ -174,7 +282,11 @@ export function buildExportSections(): ToolcraftControlSectionSchema[] {
     {
       controls: {
         format: {
+          applicability: ALWAYS,
           defaultValue: "png",
+          performanceReason:
+            "Elige el códec de imagen del artefacto, sólo en el export.",
+          performanceRole: "responsiveness",
           label: "Formato",
           options: [
             { label: "PNG", value: "png" },
@@ -184,6 +296,7 @@ export function buildExportSections(): ToolcraftControlSectionSchema[] {
           type: "select",
         },
         resolution: {
+          applicability: ALWAYS,
           defaultValue: "4k",
           label: "Resolución",
           options: [
@@ -191,6 +304,9 @@ export function buildExportSections(): ToolcraftControlSectionSchema[] {
             { label: "4K", value: "4k" },
             { label: "8K", value: "8k" },
           ],
+          performanceReason:
+            "Fija los píxeles reales del artefacto de imagen: 8K procesa dieciséis veces el área de 2K.",
+          performanceRole: "workload",
           target: "export.image.resolution",
           type: "select",
         },
@@ -202,7 +318,11 @@ export function buildExportSections(): ToolcraftControlSectionSchema[] {
     {
       controls: {
         format: {
+          applicability: ALWAYS,
           defaultValue: "mp4",
+          performanceReason:
+            "Elige el contenedor de video del artefacto, sólo en el export.",
+          performanceRole: "responsiveness",
           label: "Formato",
           options: [
             { label: "MP4", value: "mp4" },
@@ -212,21 +332,18 @@ export function buildExportSections(): ToolcraftControlSectionSchema[] {
           type: "select",
         },
         resolution: {
+          applicability: ALWAYS,
           defaultValue: "current",
           label: "Resolución",
           options: [
             { label: "Nativa", value: "current" },
             { label: "4K", value: "4k" },
           ],
+          performanceReason:
+            "Fija los píxeles reales de cada frame codificado en el export de video.",
+          performanceRole: "workload",
           target: targets.exportVideoResolution,
           type: "select",
-        },
-        audio: {
-          defaultValue: true,
-          description: "Incluye la pista original del clip, recortada a la región.",
-          label: "Audio original",
-          target: targets.exportAudio,
-          type: "switch",
         },
       },
       id: "video-export",
@@ -237,6 +354,7 @@ export function buildExportSections(): ToolcraftControlSectionSchema[] {
       actionGroup: "primary",
       controls: {
         deliver: {
+          applicability: ALWAYS,
           actions: [
             {
               icon: "upload-simple" as const,

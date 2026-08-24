@@ -68,44 +68,66 @@ export function firstFreeSlot(order: readonly number[]): number | null {
 
 const selectLayers = (state: ToolcraftState): readonly ToolcraftLayer[] =>
   state.layers;
+const selectMediaAssets = (state: ToolcraftState) => state.mediaAssets;
 const selectValues = (state: ToolcraftState): Record<string, unknown> =>
   state.values;
 
 /**
  * The chain in render order. Layers are the visible truth for order and
- * visibility; `chain.order` maps each position to its parameter slot.
+ * visibility; `chain.order` maps each position to its parameter slot. Groups
+ * and the layer that owns the imported source are skipped: the source is the
+ * material the chain runs on, not a chain position, so it must not consume one
+ * — otherwise every effect would bind to the previous effect's parameters and
+ * the last one would never render.
  */
+export function deriveChain(
+  layers: readonly ToolcraftLayer[],
+  values: Record<string, unknown>,
+  mediaLayerIds: ReadonlySet<string> = new Set(),
+): readonly ChainEntry[] {
+  const order = parseOrder(values[CHAIN_ORDER_TARGET]);
+  const chainLayers = layers.filter(
+    (layer) => layer.kind !== "group" && !mediaLayerIds.has(layer.id),
+  );
+
+  return chainLayers.flatMap((layer, index) => {
+    const slot = order[index];
+
+    if (slot === undefined) {
+      return [];
+    }
+
+    const type = values[slotTypeTarget(slot)];
+
+    if (typeof type !== "string" || type === EMPTY_SLOT) {
+      return [];
+    }
+
+    return [
+      {
+        enabled: layer.visible && values[slotEnabledTarget(slot)] !== false,
+        layerId: layer.id,
+        slot,
+        type,
+      },
+    ];
+  });
+}
+
 export function useChain(): readonly ChainEntry[] {
   const layers = useToolcraftSelector(selectLayers);
   const values = useToolcraftSelector(selectValues);
+  const mediaAssets = useToolcraftSelector(selectMediaAssets);
 
-  return React.useMemo(() => {
-    const order = parseOrder(values[CHAIN_ORDER_TARGET]);
-    const chainLayers = layers.filter((layer) => layer.kind !== "group");
-
-    return chainLayers.flatMap((layer, index) => {
-      const slot = order[index];
-
-      if (slot === undefined) {
-        return [];
-      }
-
-      const type = values[slotTypeTarget(slot)];
-
-      if (typeof type !== "string" || type === EMPTY_SLOT) {
-        return [];
-      }
-
-      return [
-        {
-          enabled: layer.visible && values[slotEnabledTarget(slot)] !== false,
-          layerId: layer.id,
-          slot,
-          type,
-        },
-      ];
-    });
-  }, [layers, values]);
+  return React.useMemo(
+    () =>
+      deriveChain(
+        layers,
+        values,
+        new Set(mediaAssets.map((asset) => asset.layerId)),
+      ),
+    [layers, mediaAssets, values],
+  );
 }
 
 /** Chain entries as engine input, carrying per-instance side data. */
