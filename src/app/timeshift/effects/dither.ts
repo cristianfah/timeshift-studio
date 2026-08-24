@@ -8,6 +8,19 @@
 
 import type { EffectModule } from "../types";
 
+/**
+ * Ancho de referencia del que sale la rejilla de trama.
+ *
+ * El punto no puede medirse en píxeles del render: el preview corre a la
+ * resolución del motor (640 px, 854 px…) y el export a la nativa del clip, así
+ * que una rejilla `ancho / punto` daría muchos más puntos en el archivo
+ * exportado que en el visor y el resultado no se parecería a lo ajustado.
+ * Fijando el número de celdas contra un ancho de referencia, la trama ocupa la
+ * misma fracción de la imagen en las dos resoluciones y el export reproduce lo
+ * que se ve.
+ */
+const REFERENCE_WIDTH = 1000;
+
 export type DitherParams = {
   amount: number;
   bias: number;
@@ -103,13 +116,12 @@ const dither: EffectModule<DitherParams> = {
   params: [
     {
       def: 3,
-      help: "Tamaño de cada punto de la trama. En 1 el dither es por píxel; al subirlo la imagen se pixela y el grano se ve más grueso.",
+      help: "Grosor del punto de trama, relativo a la imagen: el visor y el archivo exportado enseñan el mismo grano aunque cambies la resolución de previsualización.",
       key: "cell",
       label: "Punto",
       max: 32,
       min: 1,
       step: 1,
-      unit: "px",
     },
     {
       def: 2,
@@ -303,12 +315,15 @@ const dither: EffectModule<DitherParams> = {
 
   setUniforms(gl, u, p, _ctx, host) {
     const cell = Math.max(1, p.cell);
-
-    gl.uniform2f(
-      u("uGrid"),
-      Math.max(2, Math.round(host.width / cell)),
-      Math.max(2, Math.round(host.height / cell)),
+    // Celdas por ancho de imagen, no por píxeles del render: así el preview a
+    // 640 px y el export a resolución nativa dibujan la misma trama.
+    const cols = Math.max(2, Math.round(REFERENCE_WIDTH / cell));
+    const rows = Math.max(
+      2,
+      Math.round((cols * host.height) / Math.max(host.width, 1)),
     );
+
+    gl.uniform2f(u("uGrid"), cols, rows);
     gl.uniform1f(u("uDelayF"), p.delay);
     gl.uniform1f(u("uLevels"), Math.max(2, Math.round(p.levels)));
     gl.uniform1f(u("uContrast"), p.contrast);

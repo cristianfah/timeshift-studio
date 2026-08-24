@@ -86,8 +86,9 @@ Para ejecutarla: `npx serve legacy/vanilla-v1/`
     blanco/color fuente/sobre video. *Brightness → layered glyph textures.*
   - `DITHER` — cuantización con trama: la imagen baja a pocos niveles y el
     error se reparte con Bayer 2×2/4×4/8×8, ruido, semitono de clúster o
-    líneas diagonales. Punto (pixelado), niveles, dispersión, contraste,
-    umbral y mezcla; tinta mono / color con tono y saturación / cuantización
+    líneas diagonales. Punto (grosor relativo a la imagen, así el archivo
+    exportado enseña la misma trama que el visor), niveles, dispersión,
+    contraste, umbral y mezcla; tinta mono / color con tono y saturación / cuantización
     de los tres canales; ruido temporal para que la trama hierva por frame y
     retardo para tramar un frame del pasado.
     *Ordered dithering for photo and video.*
